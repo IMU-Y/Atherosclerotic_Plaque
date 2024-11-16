@@ -25,28 +25,21 @@ if __name__ == '__main__':
 
     for i in range(val_images_set.shape[0]):
         img = val_images_set[i].astype(np.uint8)
-
-        # gt = train_gts_set[i].astype(np.uint8) * 255
-        # 没有乘255
         gt = val_gts_set[i].astype(np.uint8)
 
-        # H, W = img.shape[0], img.shape[1]
         for o in orients:
-            # 逆时针旋转
-            img_o = transform.rotate(img, o)
-            gt_o = transform.rotate(gt, o)
+            # 添加 preserve_range=True 参数并确保类型为 uint8
+            img_o = transform.rotate(img, o, preserve_range=True).astype(np.uint8)
+            gt_o = transform.rotate(gt, o, preserve_range=True).astype(np.uint8)
 
             for f in flips:
                 if f == 0:
-                    # 不翻转
                     img_o_f = img_o
                     gt_o_f = gt_o
                 elif f == 1 and (o == 90 or o == 0):
-                    # 左右翻转
                     img_o_f = np.fliplr(img_o)
                     gt_o_f = np.fliplr(gt_o)
                 elif f == 2 and (o == 90 or o == 0):
-                    # 上下翻转
                     img_o_f = np.flipud(img_o)
                     gt_o_f = np.flipud(gt_o)
                 else:
@@ -55,76 +48,22 @@ if __name__ == '__main__':
                 img_save_dir = os.path.join(aug_dir_val, 'images', 'o', str(o), 'f', str(f))
                 gt_save_dir = os.path.join(aug_dir_val, 'gt', 'o', str(o), 'f', str(f))
                 print(img_save_dir)
+                
                 if not os.path.exists(img_save_dir):
                     os.makedirs(img_save_dir)
                 if not os.path.exists(gt_save_dir):
                     os.makedirs(gt_save_dir)
 
-                # cv2.imwrite(os.path.join(img_save_dir, '{}.png'.format(str(i))), img_o_f)
-                # cv2.imwrite(os.path.join(gt_save_dir, '{}.png'.format(str(i))), gt_o_f)
-
-                io.imsave(os.path.join(img_save_dir, '{}.png'.format(str(i))), img_o_f)
-                # # print('gt max:{}. min:{}'.format(np.max(gt_o_f), np.min(gt_o_f)))
-                io.imsave(os.path.join(gt_save_dir, '{}.png'.format(str(i))), gt_o_f)
+                # 保存时确保数据类型为 uint8
+                io.imsave(os.path.join(img_save_dir, '{}.png'.format(str(i))), 
+                         img_o_f.astype(np.uint8))
+                io.imsave(os.path.join(gt_save_dir, '{}.png'.format(str(i))), 
+                         gt_o_f.astype(np.uint8))
+                
                 file_val.write(os.path.join('aug_data_val', 'images', 'o', str(o), 'f', str(f),
-                                        '{}.png'.format(str(i))) + ' ' + os.path.join('aug_data_val', 'gt', 'o', str(o),
-                                                                                      'f', str(f),
-                                                                                      '{}.png\n'.format(str(i))))
-    file_val.close()
+                                          '{}.png'.format(str(i))) + ' ' + 
+                             os.path.join('aug_data_val', 'gt', 'o', str(o), 'f', str(f),
+                                        '{}.png\n'.format(str(i))))
 
-    # for i in range(train_images_set.shape[0]):
-    #     img = train_images_set[i].astype(np.uint8)
-    #
-    #     # gt = train_gts_set[i].astype(np.uint8) * 255
-    #     # 没有乘255
-    #     gt = train_gts_set[i].astype(np.uint8)
-    #
-    #     # H, W = img.shape[0], img.shape[1]
-    #     for o in orients:
-    #         # 逆时针旋转
-    #         img_o = transform.rotate(img, o)
-    #         gt_o = transform.rotate(gt, o)
-    #
-    #         for f in flips:
-    #             if f == 0:
-    #                 # 不翻转
-    #                 img_o_f = img_o
-    #                 gt_o_f = gt_o
-    #             elif f == 1 and (o == 90 or o == 0):
-    #                 # 左右翻转
-    #                 img_o_f = np.fliplr(img_o)
-    #                 gt_o_f = np.fliplr(gt_o)
-    #             elif f == 2 and (o == 90 or o == 0):
-    #                 # 上下翻转
-    #                 img_o_f = np.flipud(img_o)
-    #                 gt_o_f = np.flipud(gt_o)
-    #             else:
-    #                 continue
-    #
-    #             img_save_dir = os.path.join(aug_dir, 'images', 'o', str(o), 'f', str(f))
-    #             gt_save_dir = os.path.join(aug_dir, 'gt', 'o', str(o), 'f', str(f))
-    #             print(img_save_dir)
-    #             if not os.path.exists(img_save_dir):
-    #                 os.makedirs(img_save_dir)
-    #             if not os.path.exists(gt_save_dir):
-    #                 os.makedirs(gt_save_dir)
-    #
-    #             # cv2.imwrite(os.path.join(img_save_dir, '{}.png'.format(str(i))), img_o_f)
-    #             # cv2.imwrite(os.path.join(gt_save_dir, '{}.png'.format(str(i))), gt_o_f)
-    #
-    #             io.imsave(os.path.join(img_save_dir, '{}.png'.format(str(i))), img_o_f)
-    #             # print('gt max:{}. min:{}'.format(np.max(gt_o_f), np.min(gt_o_f)))
-    #             io.imsave(os.path.join(gt_save_dir, '{}.png'.format(str(i))), gt_o_f)
-    #             file.write(os.path.join('aug_data', 'images', 'o', str(o), 'f', str(f),
-    #                                     '{}.png'.format(str(i))) + ' ' + os.path.join('aug_data', 'gt', 'o', str(o),
-    #                                                                                   'f', str(f),
-    #                                                                                   '{}.png\n'.format(str(i))))
-    # file.close()
-    # end for
-    # aug_images = np.concatenate(np.array(aug_images), axis=0)
-    # aug_gts = np.concatenate(np.array(aug_gts), axis=0)
-    # print(aug_images.shape)
-    # print(aug_gts.shape)
-    # np.savez(os.path.join(aug_dir, 'images', 'aug_dcm.npz'), aug_images)
-    # np.savez(os.path.join(aug_dir, 'gt', 'aug_nii.npz'), aug_gts)
+    file_val.close()
     print('finished')

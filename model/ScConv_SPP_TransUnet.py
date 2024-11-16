@@ -169,7 +169,7 @@ class Decoder(nn.Module):
 
         return x
 
-class GAM_SPP_TransUnet(nn.Module):
+class ScConv_SPP_TransUnet(nn.Module):
     def __init__(self, in_channels, out_put_channels):
         super().__init__()
 

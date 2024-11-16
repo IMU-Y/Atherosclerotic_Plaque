@@ -39,4 +39,5 @@ ENV/
 *.nii
 *.nii.gz
 data/
+dataset/
 dataset.zip

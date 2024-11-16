@@ -74,16 +74,12 @@ if __name__ == '__main__':
 
     for i in range(train_images_set.shape[0]):
         img = train_images_set[i].astype(np.uint8)
-
-        # gt = train_gts_set[i].astype(np.uint8) * 255
-        # 没有乘255
         gt = train_gts_set[i].astype(np.uint8)
 
-        # H, W = img.shape[0], img.shape[1]
         for o in orients:
-            # 逆时针旋转
-            img_o = transform.rotate(img, o)
-            gt_o = transform.rotate(gt, o)
+            # 逆时针旋转，并转换回uint8类型
+            img_o = transform.rotate(img, o, preserve_range=True).astype(np.uint8)
+            gt_o = transform.rotate(gt, o, preserve_range=True).astype(np.uint8)
 
             for f in flips:
                 if f == 0:
@@ -109,12 +105,12 @@ if __name__ == '__main__':
                 if not os.path.exists(gt_save_dir):
                     os.makedirs(gt_save_dir)
 
-                # cv2.imwrite(os.path.join(img_save_dir, '{}.png'.format(str(i))), img_o_f)
-                # cv2.imwrite(os.path.join(gt_save_dir, '{}.png'.format(str(i))), gt_o_f)
+                # 确保数据类型为uint8
+                io.imsave(os.path.join(img_save_dir, '{}.png'.format(str(i))), 
+                         img_o_f.astype(np.uint8))
+                io.imsave(os.path.join(gt_save_dir, '{}.png'.format(str(i))), 
+                         gt_o_f.astype(np.uint8))
 
-                io.imsave(os.path.join(img_save_dir, '{}.png'.format(str(i))), img_o_f)
-                # print('gt max:{}. min:{}'.format(np.max(gt_o_f), np.min(gt_o_f)))
-                io.imsave(os.path.join(gt_save_dir, '{}.png'.format(str(i))), gt_o_f)
                 file.write(os.path.join('aug_data', 'images', 'o', str(o), 'f', str(f),
                                         '{}.png'.format(str(i))) + ' ' + os.path.join('aug_data', 'gt', 'o', str(o),
                                                                                       'f', str(f),
