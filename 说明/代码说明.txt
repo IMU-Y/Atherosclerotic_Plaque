@@ -1,0 +1,6 @@
+max_fusion_model        效果较为出色
+论文中阐述的是PSP_SE_fusion
+dataset_split (1)和dataset_split为文件分割
+augmentation (1)与augmentation数据增强
+
+train_plaque_pause (1)与train_plaque_pause 为训练代码
