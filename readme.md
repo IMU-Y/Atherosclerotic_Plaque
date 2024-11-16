@@ -4,7 +4,7 @@
 
 # 文件说明：
 1. dataset_split.py 为分割数据集，将原始的DICOM和NIfTI格式的医学图像数据分割成训练集、验证集和测试集
-2. augmentation.py 和 augmentation_train.py同一个数据增强脚本的两个版本
+2. augmentation.py 和 augmentation_train.py 是同一个数据增强脚本的两个版本
   2.1 augmentation_train.py处理训练集(training set)数据
   2.2 augmentation.py 处理验证集(validation set)数据
 3. train_plaque_pause.py 为训练和验证代码

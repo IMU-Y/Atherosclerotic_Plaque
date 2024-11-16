@@ -111,9 +111,11 @@ if __name__ == '__main__':
 
                 # cv2.imwrite(os.path.join(img_save_dir, '{}.png'.format(str(i))), img_o_f)
                 # cv2.imwrite(os.path.join(gt_save_dir, '{}.png'.format(str(i))), gt_o_f)
-
+                # 在保存之前转换图像格式
+                img_o_f = (img_o_f * 255).astype(np.uint8)
                 io.imsave(os.path.join(img_save_dir, '{}.png'.format(str(i))), img_o_f)
                 # print('gt max:{}. min:{}'.format(np.max(gt_o_f), np.min(gt_o_f)))
+                gt_o_f = (gt_o_f * 255).astype(np.uint8)
                 io.imsave(os.path.join(gt_save_dir, '{}.png'.format(str(i))), gt_o_f)
                 file.write(os.path.join('aug_data', 'images', 'o', str(o), 'f', str(f),
                                         '{}.png'.format(str(i))) + ' ' + os.path.join('aug_data', 'gt', 'o', str(o),
