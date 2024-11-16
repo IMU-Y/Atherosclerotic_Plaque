@@ -38,4 +38,5 @@ ENV/
 *.dcm
 *.nii
 *.nii.gz
+*.png
 data/
