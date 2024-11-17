@@ -2,125 +2,102 @@ import os
 import numpy as np
 from skimage import transform
 from skimage import io
-import cv2
+from typing import Tuple
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
+import logging
 
-# 数据增强 翻转，旋转角度
-if __name__ == '__main__':
-    root_dir = 'dataset'
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-    train_images_set = np.load(os.path.join(root_dir, 'images', 'train', 'dcm.npy'))
-    train_gts_set = np.load(os.path.join(root_dir, 'gt', 'train', 'nii.npy'))
+def process_single_image(args: Tuple) -> None:
+    """处理单张图像的数据增强
+    
+    Args:
+        args: (图像, 标注, 索引, 保存路径, 方向, 翻转方式)
+    """
+    img, gt, idx, aug_dir, orient, flip = args
+    
+    try:
+        # 旋转
+        img_o = transform.rotate(img, orient)
+        gt_o = transform.rotate(gt, orient)
+        
+        # 翻转
+        if flip == 0:
+            img_o_f, gt_o_f = img_o, gt_o
+        elif flip == 1 and (orient == 90 or orient == 0):
+            img_o_f, gt_o_f = np.fliplr(img_o), np.fliplr(gt_o)
+        elif flip == 2 and (orient == 90 or orient == 0):
+            img_o_f, gt_o_f = np.flipud(img_o), np.flipud(gt_o)
+        else:
+            return None
+            
+        # 创建保存路径
+        img_save_dir = Path(aug_dir) / 'images' / 'o' / str(orient) / 'f' / str(flip)
+        gt_save_dir = Path(aug_dir) / 'gt' / 'o' / str(orient) / 'f' / str(flip)
+        
+        img_save_dir.mkdir(parents=True, exist_ok=True)
+        gt_save_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 保存图像
+        img_o_f = (img_o_f * 255).astype(np.uint8)
+        gt_o_f = (gt_o_f * 255).astype(np.uint8)
+        
+        img_path = img_save_dir / f'{idx}.png'
+        gt_path = gt_save_dir / f'{idx}.png'
+        
+        io.imsave(img_path, img_o_f)
+        io.imsave(gt_path, gt_o_f)
+        
+        return (f'aug_data/images/o/{orient}/f/{flip}/{idx}.png',
+                f'aug_data/gt/o/{orient}/f/{flip}/{idx}.png')
+                
+    except Exception as e:
+        logger.error(f"处理图像 {idx} 时出错: {e}")
+        return None
 
-    # val_images_set = np.load(os.path.join(root_dir, 'images', 'val', 'dcm.npy'))
-    # val_gts_set = np.load(os.path.join(root_dir, 'gt', 'val', 'nii.npy'))
-    #
+def augment_dataset(data_type: str = 'train') -> None:
+    """数据增强主函数
+    
+    Args:
+        data_type: 'train' 或 'val'
+    """
+    root_dir = Path('dataset')
+    
+    # 加载数据
+    try:
+        images_set = np.load(root_dir / 'images' / data_type / 'dcm.npy')
+        gts_set = np.load(root_dir / 'gt' / data_type / 'nii.npy')
+    except Exception as e:
+        logger.error(f"加载数据集出错: {e}")
+        return
+
     orients = [0, 90, 180, 270]
     flips = [0, 1, 2]
-
-    aug_dir = os.path.join(root_dir, 'aug_data')
-    file = open(root_dir + '/train_pair.lst', 'w')
-
-    # aug_dir_val = os.path.join(root_dir, 'aug_data_val')
-    # file_val = open(root_dir + '/val_pair.lst', 'w')
-    #
-    # for i in range(val_images_set.shape[0]):
-    #     img = val_images_set[i].astype(np.uint8)
-    #
-    #     # gt = train_gts_set[i].astype(np.uint8) * 255
-    #     # 没有乘255
-    #     gt = val_gts_set[i].astype(np.uint8)
-    #
-    #     # H, W = img.shape[0], img.shape[1]
-    #     for o in orients:
-    #         # 逆时针旋转
-    #         img_o = transform.rotate(img, o)
-    #         gt_o = transform.rotate(gt, o)
-    #
-    #         for f in flips:
-    #             if f == 0:
-    #                 # 不翻转
-    #                 img_o_f = img_o
-    #                 gt_o_f = gt_o
-    #             elif f == 1 and (o == 90 or o == 0):
-    #                 # 左右翻转
-    #                 img_o_f = np.fliplr(img_o)
-    #                 gt_o_f = np.fliplr(gt_o)
-    #             elif f == 2 and (o == 90 or o == 0):
-    #                 # 上下翻转
-    #                 img_o_f = np.flipud(img_o)
-    #                 gt_o_f = np.flipud(gt_o)
-    #             else:
-    #                 continue
-
-                # img_save_dir = os.path.join(aug_dir_val, 'images', 'o', str(o), 'f', str(f))
-                # gt_save_dir = os.path.join(aug_dir_val, 'gt', 'o', str(o), 'f', str(f))
-                # print(img_save_dir)
-                # if not os.path.exists(img_save_dir):
-                #     os.makedirs(img_save_dir)
-                # if not os.path.exists(gt_save_dir):
-                #     os.makedirs(gt_save_dir)
-
-                # cv2.imwrite(os.path.join(img_save_dir, '{}.png'.format(str(i))), img_o_f)
-                # cv2.imwrite(os.path.join(gt_save_dir, '{}.png'.format(str(i))), gt_o_f)
-
-                # io.imsave(os.path.join(img_save_dir, '{}.png'.format(str(i))), img_o_f)
-                # print('gt max:{}. min:{}'.format(np.max(gt_o_f), np.min(gt_o_f)))
-                # io.imsave(os.path.join(gt_save_dir, '{}.png'.format(str(i))), gt_o_f)
-                # file_val.write(os.path.join('aug_data_val', 'images', 'o', str(o), 'f', str(f),
-                #                         '{}.png'.format(str(i))) + ' ' + os.path.join('aug_data_val', 'gt', 'o', str(o),
-                #                                                                       'f', str(f),
-                #                                                                       '{}.png\n'.format(str(i))))
-    # file_val.close()
-
-    for i in range(train_images_set.shape[0]):
-        img = train_images_set[i].astype(np.uint8)
-        gt = train_gts_set[i].astype(np.uint8)
-
+    aug_dir = root_dir / 'aug_data'
+    
+    # 准备并行处理的参数
+    tasks = []
+    for i in range(images_set.shape[0]):
+        img = images_set[i].astype(np.uint8)
+        gt = gts_set[i].astype(np.uint8)
         for o in orients:
-            # 逆时针旋转，并转换回uint8类型
-            img_o = transform.rotate(img, o, preserve_range=True).astype(np.uint8)
-            gt_o = transform.rotate(gt, o, preserve_range=True).astype(np.uint8)
-
             for f in flips:
-                if f == 0:
-                    # 不翻转
-                    img_o_f = img_o
-                    gt_o_f = gt_o
-                elif f == 1 and (o == 90 or o == 0):
-                    # 左右翻转
-                    img_o_f = np.fliplr(img_o)
-                    gt_o_f = np.fliplr(gt_o)
-                elif f == 2 and (o == 90 or o == 0):
-                    # 上下翻转
-                    img_o_f = np.flipud(img_o)
-                    gt_o_f = np.flipud(gt_o)
-                else:
-                    continue
+                tasks.append((img, gt, i, aug_dir, o, f))
+    
+    # 并行处理图像
+    results = []
+    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+        for result in executor.map(process_single_image, tasks):
+            if result:
+                results.append(result)
+    
+    # 写入配对信息
+    with open(root_dir / f'{data_type}_pair.lst', 'w') as f:
+        for img_path, gt_path in results:
+            f.write(f'{img_path} {gt_path}\n')
 
-                img_save_dir = os.path.join(aug_dir, 'images', 'o', str(o), 'f', str(f))
-                gt_save_dir = os.path.join(aug_dir, 'gt', 'o', str(o), 'f', str(f))
-                print(img_save_dir)
-                if not os.path.exists(img_save_dir):
-                    os.makedirs(img_save_dir)
-                if not os.path.exists(gt_save_dir):
-                    os.makedirs(gt_save_dir)
-
-                # 确保数据类型为uint8
-                io.imsave(os.path.join(img_save_dir, '{}.png'.format(str(i))), 
-                         img_o_f.astype(np.uint8))
-                io.imsave(os.path.join(gt_save_dir, '{}.png'.format(str(i))), 
-                         gt_o_f.astype(np.uint8))
-
-                file.write(os.path.join('aug_data', 'images', 'o', str(o), 'f', str(f),
-                                        '{}.png'.format(str(i))) + ' ' + os.path.join('aug_data', 'gt', 'o', str(o),
-                                                                                      'f', str(f),
-                                                                                      '{}.png\n'.format(str(i))))
-    file.close()
-    # #end for
-    # aug_images = np.concatenate(np.array(aug_images), axis=0)
-    # aug_gts = np.concatenate(np.array(aug_gts), axis=0)
-    # print(aug_images.shape)
-    # print(aug_gts.shape)
-    # np.savez(os.path.join(aug_dir, 'images', 'aug_dcm.npz'), aug_images)
-    # np.savez(os.path.join(aug_dir, 'gt', 'aug_nii.npz'), aug_gts)
-    # print('finished')
+if __name__ == '__main__':
+    augment_dataset('train')
+    logger.info('数据增强完成')
