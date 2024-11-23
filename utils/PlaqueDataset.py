@@ -24,7 +24,7 @@ class PlaqueDataset(data.Dataset):
             gt = gt.astype(np.float64)
             # print('gt max:{}, min:{}'.format(np.max(gt), np.min(gt)))
         else:
-            img, gt = self.images[index].astype(np.uint8), self.gts[index].astype(np.float)
+            img, gt = self.images[index].astype(np.uint8), self.gts[index].astype(np.float32)
             # img:(H,W,C) gt:(H,W)
             # tensor = torch.from_numpy(img).to(self.contour_device) / 255
             # print('tensor max:{}, min:{}'.format(torch.max(tensor), torch.min(tensor)))
