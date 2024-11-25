@@ -58,7 +58,8 @@ from model.SK_concat_fusion import SK_concat_fusion
 from model.SK_fuison_direct import SK_fusion_direct
 from model.SK_fusion import SK_fusion
 from model.SS_UNet import SS_UNet
-from model.ScConv_SPP_TransUnet import ScConv_SPP_TransUnet
+from model.ScribblePrompt import ScribblePrompt
+# from model.ScConv_SPP_TransUnet import ScConv_SPP_TransUnet
 from model.TransUnet1block import TransUnet1block
 from model.TransUnet2block import TransUnet2block
 from model.TransUnet3block import TransUnet3block
@@ -83,6 +84,9 @@ from model.PureUNet_SK_L import PureUNet_SK_L
 from utils.FocalLoss import FocalLossMutiClass
 from utils.PlaqueDataset import PlaqueDataset
 from utils.PlaqueDataset_val import PlaqueDataset_val
+from model.MedSAM import MedSAM
+from model.SAM_VMNet import SAM_VMNet
+from model.UNetX import UNetX
 torch.cuda.set_per_process_memory_fraction(0.99)
 # torch.cuda.set_per_process_memory_growth(True)
 
@@ -105,8 +109,8 @@ parser.add_argument("--class_num", default=5, type=int, choices=[2, 4])
 parser.add_argument("--net", required=True, choices=['PureUNet_SK_R','NestedUNet','PureUNet_ECA_L','PureUNet_SK_L_SPP','PureUNet_SK_L','PureUNet_CBAM_L_SPP','PureUNet_CBAM_L','PureUNet_BAM_L','PureUNet_SPP','SE_UNet','SE_UNet2','Att_UNet','SS_UNet','MyModel', 'UNet','UNet2','PlaqueNet','PureUNet','DA_UNet','DA_UNet2','CE_UNet','ASPP_UNet','CS_UNet','CS_UNet2','GLCM_UNet','PlaqueNet_CBAM_IN',
                                                      'TransUnet2block','TransUnet3block','TransUnet_DA_SPP','TransUnet_SE_SPP','scSE_SPP_TransUnet','ScConv_SPP_TransUnet','GAM_SPP_TransUnet','SE_TransUnet_SPP','SE_TransUnet_SPP2','CBAM_TransUnet_SPP','BAM_TransUnet_SPP','PureUNet_BAM','MyPureUNet','SE_UNet_CBAM','TransUnet','Pos_TransUNet','PureTransUNet','DA_SPP_UNet','DA_SPP_UNet2','DA_SPP_Down_UNet',
                                                      'TransUnet_ASPP','TransUnet8block','TransUnet7block','TransUnet6block','TransUnet5block','TransUnet1block','TransUnet4block','Trans_Unet_SPP','DA_Trans_Unet_SPP','DA_Trans_Unet_SPP2','DA_TransUnet_SPP3','ECA_TransUnet_SPP','CBAM_TransUnet_SPP2',
-                                                     'SE_SPP_Leaky_TransUnet','TransUnet_ASPP2', 'CE_Net_OCT','R2U_Net','TransUnet_atten_ASPP','TransUnet_ASPP_CBAM_decoder',
-                                                     'PSP_DA_fusion','PSP_fusion', 'PSP_fusion2','PSP_SE_fusion', 'SK_concat_fusion','SE_max_fusion','SE_fusion', 'fusion_model', 'SK_fusion_direct', 'SK_fusion', 'max_fusion_model'])
+                                                     'SE_SPP_Leaky_TransUnet','TransUnet_ASPP2', 'CE_Net_OCT','R2U_Net','TransUnet_atten_ASPP','TransUnet_ASPP_CBAM_decoder','ScribblePrompt',
+                                                     'PSP_DA_fusion','PSP_fusion', 'PSP_fusion2','PSP_SE_fusion', 'SK_concat_fusion','SE_max_fusion','SE_fusion', 'fusion_model', 'SK_fusion_direct', 'SK_fusion', 'max_fusion_model', 'MedSAM', 'SAM_VMNet', 'UNetX'])
 parser.add_argument("--remark", default='')
 parser.add_argument("--root_path", default='dataset')
 parser.add_argument("--roi", default=False, type=bool, help='whether use RoI mask')
@@ -146,7 +150,7 @@ def train(model, train_loader, optimizer, scheduler, val_loader):
     # 加载保存的模型（训练过程中断的模型）
     start_epoch = 0
     if args.resume:
-        path_checkpoint = "/root/autodl-tmp/code/checkpoint/SK_concat_fusion/SK_concat_fusion_plaque_epoch_19_lr_0.05.pth"  # 断点路径
+        path_checkpoint = "/root/autodl-tmp/plaque/checkpoint/SAM_VMNet/SAM_VMNet_plaque_epoch_18_lr_0.05.pth"  # 断点路径
         checkpoint = torch.load(path_checkpoint)  # 加载断点
 
         model.load_state_dict(checkpoint['net'])  # 加载模型可学习参数
@@ -345,6 +349,12 @@ def main():
         model: SS_UNet = SS_UNet(in_channels=3, output_channels=args.class_num, bilinear=True)
     elif args.net == 'Att_UNet':
         model: Att_UNet = Att_UNet(img_ch=3, output_ch=args.class_num)
+    elif args.net == 'ScribblePrompt':
+        model = ScribblePrompt(
+            in_channels=3, 
+            output_channels=args.class_num,
+            sam_checkpoint='/path/to/sam_vit_h.pth'  # 需要指定SAM预训练权重路径
+        )
     # elif args.net == 'SE_UNet2':
     #     model: SE_UNet2 = SE_UNet2(in_channels=3, output_channels=args.class_num, bilinear=True)
     elif args.net == 'SE_UNet':
@@ -476,21 +486,17 @@ def main():
         model2 = PSP_SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
         model: PSP_DA_fusion = PSP_DA_fusion(model1, model2)
 
-
-
-
-
-
-
-
     elif args.net == 'TransUnet_ASPP2':
         model: TransUnet_ASPP2 = TransUnet_ASPP2(in_channels=3, out_put_channels=args.class_num)
         # model2 = SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
         # model: fusion_model = fusion_model(model1, model2)
 
-
-
-
+    elif args.net == 'MedSAM':
+        model: MedSAM = MedSAM(in_channels=3, output_channels=args.class_num)
+    elif args.net == 'SAM_VMNet':
+        model = SAM_VMNet(in_channels=3, output_channels=args.class_num)
+    elif args.net == 'UNetX':
+        model = UNetX(in_channels=3, out_channels=args.class_num)
 
     transformation = transforms.Compose([
         transforms.ToTensor(),
@@ -507,10 +513,20 @@ def main():
     val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=True)
 
     # create optimizer
-    optimizer = optim.SGD(model.parameters(), args.lr, momentum=0.9)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[5, 10, 15], gamma=0.2, last_epoch=-1)
-
-    # optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    optimizer = optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
+    # optimizer = optim.SGD(model.parameters(), args.lr, momentum=0.9)
+    # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[5, 10, 15], gamma=0.2, last_epoch=-1)
+    # 使用余弦退火学习率调度器
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        optimizer,
+        T_0=5,  # 第一次重启的epoch数
+        T_mult=2,  # 每次重启后周期乘数
+        eta_min=1e-6  # 最小学习率
+    )
+    
+    # 使用混合精度训练
+    scaler = torch.cuda.amp.GradScaler()
+    
     train(model, train_loader, optimizer, scheduler, val_loader)
 
 
