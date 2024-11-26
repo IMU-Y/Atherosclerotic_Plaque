@@ -9,6 +9,7 @@ import torch
 import torch.optim as optim
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
+from PIL import Image
 
 from model.ASPP_UNet import ASPP_UNet
 from model.Att_UNet import Att_UNet
@@ -150,7 +151,7 @@ def train(model, train_loader, optimizer, scheduler, val_loader):
     # 加载保存的模型（训练过程中断的模型）
     start_epoch = 0
     if args.resume:
-        path_checkpoint = "/root/autodl-tmp/plaque/checkpoint/SAM_VMNet/SAM_VMNet_plaque_epoch_18_lr_0.05.pth"  # 断点路径
+        path_checkpoint = "/root/autodl-tmp/plaque/checkpoint/SAM_VMNet/SAM_VMNet_plaque_epoch_14_lr_0.05.pth"  # 断点路径
         checkpoint = torch.load(path_checkpoint)  # 加载断点
 
         model.load_state_dict(checkpoint['net'])  # 加载模型可学习参数
@@ -169,8 +170,8 @@ def train(model, train_loader, optimizer, scheduler, val_loader):
 
     Loss = FocalLossMutiClass()
     # Loss = MixedLoss()
-
-    for epoch in range(start_epoch + 1, args.epoch + 1):
+    # for epoch in range(start_epoch + 1, args.epoch + 1):
+    for epoch in range(start_epoch + 1, 16):
         # scheduler.step()
 
         total_loss = 0
@@ -349,12 +350,6 @@ def main():
         model: SS_UNet = SS_UNet(in_channels=3, output_channels=args.class_num, bilinear=True)
     elif args.net == 'Att_UNet':
         model: Att_UNet = Att_UNet(img_ch=3, output_ch=args.class_num)
-    elif args.net == 'ScribblePrompt':
-        model = ScribblePrompt(
-            in_channels=3, 
-            output_channels=args.class_num,
-            sam_checkpoint='/path/to/sam_vit_h.pth'  # 需要指定SAM预训练权重路径
-        )
     # elif args.net == 'SE_UNet2':
     #     model: SE_UNet2 = SE_UNet2(in_channels=3, output_channels=args.class_num, bilinear=True)
     elif args.net == 'SE_UNet':
@@ -499,9 +494,7 @@ def main():
         model = UNetX(in_channels=3, out_channels=args.class_num)
 
     transformation = transforms.Compose([
-        transforms.ToTensor(),
-        # transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
-        # transforms.Normalize(mean=( 32.624835/255, 32.548692/255,0.913718/255), std=(55.954032/255, 55.481115/255, 8.453468/255))
+        transforms.ToTensor(),  # 使用自定义ToTensor
     ])
     # load data 这里我的torchvision版本不能传transformation
     train_set = PlaqueDataset(root_path=args.root_path, train=True, transform=transformation, roi=args.roi)
