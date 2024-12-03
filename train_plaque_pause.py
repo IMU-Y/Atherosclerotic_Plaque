@@ -48,7 +48,7 @@ from model.PureUNet_BAM import PureUNet_BAM
 from model.PureUNet_SPP import PureUNet_SPP
 from model.R2Unet import R2U_Net
 from model.SE_SPP_Leaky_TransUnet import SE_SPP_Leaky_TransUnet
-# from model.SE_TransUnet_SPP import SE_TransUnet_SPP
+from model.SE_TransUnet_SPP import SE_TransUnet_SPP
 # from model.SE_TransUnet_SPP2 import SE_TransUnet_SPP2
 # from model.SE_UNet2 import SE_UNet2
 from model.SE_UNet import SE_UNet
@@ -88,6 +88,7 @@ from utils.PlaqueDataset_val import PlaqueDataset_val
 from model.MedSAM import MedSAM
 from model.SAM_VMNet import SAM_VMNet
 from model.UNetX import UNetX
+from model.MambaUNet import MambaUNet
 torch.cuda.set_per_process_memory_fraction(0.99)
 # torch.cuda.set_per_process_memory_growth(True)
 
@@ -111,7 +112,7 @@ parser.add_argument("--net", required=True, choices=['PureUNet_SK_R','NestedUNet
                                                      'TransUnet2block','TransUnet3block','TransUnet_DA_SPP','TransUnet_SE_SPP','scSE_SPP_TransUnet','ScConv_SPP_TransUnet','GAM_SPP_TransUnet','SE_TransUnet_SPP','SE_TransUnet_SPP2','CBAM_TransUnet_SPP','BAM_TransUnet_SPP','PureUNet_BAM','MyPureUNet','SE_UNet_CBAM','TransUnet','Pos_TransUNet','PureTransUNet','DA_SPP_UNet','DA_SPP_UNet2','DA_SPP_Down_UNet',
                                                      'TransUnet_ASPP','TransUnet8block','TransUnet7block','TransUnet6block','TransUnet5block','TransUnet1block','TransUnet4block','Trans_Unet_SPP','DA_Trans_Unet_SPP','DA_Trans_Unet_SPP2','DA_TransUnet_SPP3','ECA_TransUnet_SPP','CBAM_TransUnet_SPP2',
                                                      'SE_SPP_Leaky_TransUnet','TransUnet_ASPP2', 'CE_Net_OCT','R2U_Net','TransUnet_atten_ASPP','TransUnet_ASPP_CBAM_decoder','ScribblePrompt',
-                                                     'PSP_DA_fusion','PSP_fusion', 'PSP_fusion2','PSP_SE_fusion', 'SK_concat_fusion','SE_max_fusion','SE_fusion', 'fusion_model', 'SK_fusion_direct', 'SK_fusion', 'max_fusion_model', 'MedSAM', 'SAM_VMNet', 'UNetX'])
+                                                     'PSP_DA_fusion','PSP_fusion', 'PSP_fusion2','PSP_SE_fusion', 'SK_concat_fusion','SE_max_fusion','SE_fusion', 'fusion_model', 'SK_fusion_direct', 'SK_fusion', 'max_fusion_model', 'MedSAM', 'SAM_VMNet', 'UNetX', 'MambaUNet'])
 parser.add_argument("--remark", default='')
 parser.add_argument("--root_path", default='dataset')
 parser.add_argument("--roi", default=False, type=bool, help='whether use RoI mask')
@@ -151,7 +152,7 @@ def train(model, train_loader, optimizer, scheduler, val_loader):
     # 加载保存的模型（训练过程中断的模型）
     start_epoch = 0
     if args.resume:
-        path_checkpoint = "/root/autodl-tmp/plaque/checkpoint/SAM_VMNet/SAM_VMNet_plaque_epoch_14_lr_0.05.pth"  # 断点路径
+        path_checkpoint = "/root/autodl-tmp/plaque/checkpoint/MambaUNet/MambaUNet_plaque_epoch_19_lr_0.05.pth"  # 断点路径
         checkpoint = torch.load(path_checkpoint)  # 加载断点
 
         model.load_state_dict(checkpoint['net'])  # 加载模型可学习参数
@@ -171,7 +172,7 @@ def train(model, train_loader, optimizer, scheduler, val_loader):
     Loss = FocalLossMutiClass()
     # Loss = MixedLoss()
     # for epoch in range(start_epoch + 1, args.epoch + 1):
-    for epoch in range(start_epoch + 1, 16):
+    for epoch in range(start_epoch + 1, args.epoch + 1):
         # scheduler.step()
 
         total_loss = 0
@@ -388,8 +389,8 @@ def main():
     #     model: BAM_TransUnet_SPP = BAM_TransUnet_SPP(in_channels=3, out_put_channels=args.class_num)
     # elif args.net == 'CBAM_TransUnet_SPP':
     #     model: CBAM_TransUnet_SPP = CBAM_TransUnet_SPP(in_channels=3, out_put_channels=args.class_num)
-    # elif args.net == 'SE_TransUnet_SPP':
-    #     model: SE_TransUnet_SPP = SE_TransUnet_SPP(in_channels=3, out_put_channels=args.class_num)
+    elif args.net == 'SE_TransUnet_SPP':
+        model: SE_TransUnet_SPP = SE_TransUnet_SPP(in_channels=3, out_put_channels=args.class_num)
     # elif args.net == 'SE_TransUnet_SPP2':
     #     model: SE_TransUnet_SPP2 = SE_TransUnet_SPP2(in_channels=3, out_put_channels=args.class_num)
     elif args.net == 'ECA_TransUnet_SPP':
@@ -492,6 +493,8 @@ def main():
         model = SAM_VMNet(in_channels=3, output_channels=args.class_num)
     elif args.net == 'UNetX':
         model = UNetX(in_channels=3, out_channels=args.class_num)
+    elif args.net == 'MambaUNet':
+        model = MambaUNet(in_channels=3, out_channels=args.class_num)
 
     transformation = transforms.Compose([
         transforms.ToTensor(),  # 使用自定义ToTensor
@@ -506,15 +509,22 @@ def main():
     val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=True)
 
     # create optimizer
-    optimizer = optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
-    # optimizer = optim.SGD(model.parameters(), args.lr, momentum=0.9)
-    # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[5, 10, 15], gamma=0.2, last_epoch=-1)
-    # 使用余弦退火学习率调度器
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+    optimizer = optim.AdamW(
+        model.parameters(),
+        lr=0.0001,  # 降低初始学习率
+        weight_decay=0.01,
+        betas=(0.9, 0.999)
+    )
+
+    # 学习率调度器
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
         optimizer,
-        T_0=5,  # 第一次重启的epoch数
-        T_mult=2,  # 每次重启后周期乘数
-        eta_min=1e-6  # 最小学习率
+        max_lr=0.001,
+        epochs=args.epoch,
+        steps_per_epoch=len(train_loader),
+        pct_start=0.1,
+        div_factor=10,
+        final_div_factor=100
     )
     
     # 使用混合精度训练

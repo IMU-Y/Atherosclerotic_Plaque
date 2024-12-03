@@ -22,5 +22,8 @@
 说明：可以实验一下编码器解码器的分割网络等，如FCN等
 
 # 训练和测试代码
+
 python train_plaque_pause.py --gpu 0 --net SAM_VMNet
 python test_plaque.py --gpu 0 --model products/SAM_VMNet_plaque_lr_0.05_epoch_20.pth
+
+pip install mamba-ssm--no-build-isolation
