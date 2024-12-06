@@ -1,6 +1,29 @@
 import torch
 import torch.nn as nn
 from mamba_ssm import Mamba
+import torch.nn.functional as F
+
+class TransformerBlock(nn.Module):
+    def __init__(self, d_model, nhead, dim_feedforward, dropout=0.1):
+        super().__init__()
+        self.self_attn = nn.MultiheadAttention(d_model, nhead)
+        self.linear1 = nn.Linear(d_model, dim_feedforward)
+        self.dropout = nn.Dropout(dropout)
+        self.linear2 = nn.Linear(dim_feedforward, d_model)
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
+
+    def forward(self, x):
+        # 自注意力机制
+        x2 = self.self_attn(x, x, x)[0]
+        x = x + self.dropout(x2)
+        x = self.norm1(x)
+        
+        # 前馈网络
+        x2 = self.linear2(self.dropout(F.relu(self.linear1(x))))
+        x = x + x2
+        x = self.norm2(x)
+        return x
 
 class MambaBlock(nn.Module):
     def __init__(self, d_model, d_state=16, d_conv=4):
@@ -11,12 +34,16 @@ class MambaBlock(nn.Module):
             d_conv=d_conv
         )
         self.norm = nn.LayerNorm(d_model)
+        self.transformer = TransformerBlock(d_model, nhead=8, dim_feedforward=d_model)
         
     def forward(self, x):
         # 调整维度顺序以适应Mamba
         b, c, h, w = x.shape
         x = x.permute(0, 2, 3, 1).reshape(b, h*w, c)
         x = self.mamba(x)
+        
+        x = self.transformer(x)
+        
         x = self.norm(x)
         # 恢复原始维度
         x = x.reshape(b, h, w, c).permute(0, 3, 1, 2)
@@ -42,9 +69,9 @@ class DownBlock(nn.Module):
 class UpBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
-        self.up = nn.ConvTranspose2d(in_channels, out_channels, 2, stride=2)
+        self.up = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2)
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, 3, padding=1),
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True)
         )
