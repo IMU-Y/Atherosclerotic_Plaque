@@ -96,6 +96,99 @@ class UpBlock(nn.Module):
         x = self.mamba(x)
         return x
 
+class ChannelAttention(nn.Module):
+    """通道注意力模块"""
+    def __init__(self, channel, reduction=16):
+        super().__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.max_pool = nn.AdaptiveMaxPool2d(1)
+        
+        # 共享MLP
+        self.shared_mlp = nn.Sequential(
+            nn.Linear(channel, channel // reduction, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Linear(channel // reduction, channel, bias=False)
+        )
+        
+    def forward(self, x):
+        # 平均池化分支
+        avg_out = self.shared_mlp(self.avg_pool(x).view(x.size(0), -1))
+        # 最大池化分支
+        max_out = self.shared_mlp(self.max_pool(x).view(x.size(0), -1))
+        
+        # 融合两个分支
+        out = avg_out + max_out
+        return torch.sigmoid(out).view(x.size(0), x.size(1), 1, 1)
+
+class SpatialAttention(nn.Module):
+    """空间注意力模块"""
+    def __init__(self, kernel_size=7):
+        super().__init__()
+        self.conv = nn.Conv2d(2, 1, kernel_size, padding=kernel_size//2)
+        
+    def forward(self, x):
+        # 沿通道维度的平均池化和最大池化
+        avg_out = torch.mean(x, dim=1, keepdim=True)
+        max_out, _ = torch.max(x, dim=1, keepdim=True)
+        
+        # 拼接池化结果
+        x = torch.cat([avg_out, max_out], dim=1)
+        # 卷积处理
+        x = self.conv(x)
+        return torch.sigmoid(x)
+
+class EnhancedBottleneck(nn.Module):
+    """增强型瓶颈层"""
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        # 基础卷积层
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, 3, padding=1),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True)
+        )
+        
+        # Mamba处理
+        self.mamba = MambaBlock(out_channels)
+        
+        # 注意力机制
+        self.channel_att = ChannelAttention(out_channels)
+        self.spatial_att = SpatialAttention()
+        
+        # 可选：最终的特征融合
+        self.fusion = nn.Sequential(
+            nn.Conv2d(out_channels, out_channels, 1),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True)
+        )
+        
+    def forward(self, x):
+        # 保存输入用于残差连接
+        identity = x
+        
+        # 基础特征提取
+        x = self.conv(x)
+        
+        # Mamba处理
+        x = self.mamba(x)
+        
+        # 通道注意力
+        channel_att = self.channel_att(x)
+        x = x * channel_att
+        
+        # 空间注意力
+        spatial_att = self.spatial_att(x)
+        x = x * spatial_att
+        
+        # 特征融合
+        x = self.fusion(x)
+        
+        # 残差连接
+        if x.shape == identity.shape:
+            x = x + identity
+            
+        return x
+
 class MambaUNet(nn.Module):
     def __init__(self, in_channels=3, out_channels=5):
         super().__init__()
@@ -107,12 +200,7 @@ class MambaUNet(nn.Module):
         self.enc4 = DownBlock(256, 512)
         
         # 瓶颈层
-        self.bottleneck = nn.Sequential(
-            nn.Conv2d(512, 1024, 3, padding=1),
-            nn.BatchNorm2d(1024),
-            nn.ReLU(inplace=True),
-            MambaBlock(1024)
-        )
+        self.bottleneck = EnhancedBottleneck(512, 1024)
         
         # 解码器
         self.dec4 = UpBlock(1024, 512)
@@ -124,7 +212,7 @@ class MambaUNet(nn.Module):
         self.final = nn.Conv2d(64, out_channels, 1)
         
     def forward(self, x):
-        # ��码器路径
+        # 编码器路径
         x1, p1 = self.enc1(x)
         x2, p2 = self.enc2(p1)
         x3, p3 = self.enc3(p2)
