@@ -3,29 +3,29 @@ import torch.nn as nn
 from mamba_ssm import Mamba
 import torch.nn.functional as F
 
-class TransformerBlock(nn.Module):
-    def __init__(self, d_model, nhead, dim_feedforward, dropout=0.1):
+class SEBlock(nn.Module):
+    """Squeeze-and-Excitation块"""
+    def __init__(self, channel, reduction=16):
         super().__init__()
-        self.self_attn = nn.MultiheadAttention(d_model, nhead)
-        self.linear1 = nn.Linear(d_model, dim_feedforward)
-        self.dropout = nn.Dropout(dropout)
-        self.linear2 = nn.Linear(dim_feedforward, d_model)
-        self.norm1 = nn.LayerNorm(d_model)
-        self.norm2 = nn.LayerNorm(d_model)
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Sequential(
+            nn.Linear(channel, channel // reduction, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Linear(channel // reduction, channel, bias=False),
+            nn.Sigmoid()
+        )
 
     def forward(self, x):
-        # 自注意力机制
-        x2 = self.self_attn(x, x, x)[0]
-        x = x + self.dropout(x2)
-        x = self.norm1(x)
-        
-        # 前馈网络
-        x2 = self.linear2(self.dropout(F.relu(self.linear1(x))))
-        x = x + x2
-        x = self.norm2(x)
-        return x
+        b, c, _, _ = x.shape
+        # Squeeze
+        y = self.avg_pool(x).view(b, c)
+        # Excitation
+        y = self.fc(y).view(b, c, 1, 1)
+        # Scale
+        return x * y.expand_as(x)
 
 class MambaBlock(nn.Module):
+    """增强版MambaBlock"""
     def __init__(self, d_model, d_state=16, d_conv=4):
         super().__init__()
         self.mamba = Mamba(
@@ -34,19 +34,30 @@ class MambaBlock(nn.Module):
             d_conv=d_conv
         )
         self.norm = nn.LayerNorm(d_model)
-        self.transformer = TransformerBlock(d_model, nhead=8, dim_feedforward=d_model)
+        # 添加SE注意力
+        self.se = SEBlock(d_model)
+        # 可选：添加投影层确保残差连接维度匹配
+        self.proj = nn.Conv2d(d_model, d_model, 1) if d_model != d_model else nn.Identity()
         
     def forward(self, x):
-        # 调整维度顺序以适应Mamba
+        # 保存输入用于残差连接
+        identity = x
+        
+        # Mamba处理
         b, c, h, w = x.shape
         x = x.permute(0, 2, 3, 1).reshape(b, h*w, c)
         x = self.mamba(x)
-        
-        x = self.transformer(x)
-        
         x = self.norm(x)
-        # 恢复原始维度
+        
+        # 恢复维度
         x = x.reshape(b, h, w, c).permute(0, 3, 1, 2)
+        
+        # 应用SE注意力
+        x = self.se(x)
+        
+        # 残差连接
+        x = x + self.proj(identity)
+        
         return x
 
 class DownBlock(nn.Module):
@@ -63,15 +74,16 @@ class DownBlock(nn.Module):
     def forward(self, x):
         x = self.conv(x)
         x = self.mamba(x)
+        skip = x
         p = self.pool(x)
-        return x, p
+        return skip, p
 
 class UpBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.up = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2)
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels, out_channels, 3, padding=1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True)
         )
@@ -112,7 +124,7 @@ class MambaUNet(nn.Module):
         self.final = nn.Conv2d(64, out_channels, 1)
         
     def forward(self, x):
-        # 编码器路径
+        # ��码器路径
         x1, p1 = self.enc1(x)
         x2, p2 = self.enc2(p1)
         x3, p3 = self.enc3(p2)
