@@ -341,12 +341,6 @@ def main():
         model: CE_Net_OCT = CE_Net_OCT(output_channels=args.class_num)
     elif args.net == 'ASPP_UNet':
         model: ASPP_UNet = ASPP_UNet(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'CS_UNet':
-        model: CS_UNet = CS_UNet(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'CS_UNet2':
-        model: CS_UNet2 = CS_UNet2(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'GLCM_UNet':
-        model: GLCM_UNet = GLCM_UNet(in_channels=3, output_channels=args.class_num, bilinear=True)
     elif args.net == 'SS_UNet':
         model: SS_UNet = SS_UNet(in_channels=3, output_channels=args.class_num, bilinear=True)
     elif args.net == 'Att_UNet':
@@ -399,8 +393,6 @@ def main():
         model: CBAM_TransUnet_SPP2 = CBAM_TransUnet_SPP2(in_channels=3, out_put_channels=args.class_num)
     elif args.net == 'GAM_SPP_TransUnet':
         model: GAM_SPP_TransUnet = GAM_SPP_TransUnet(in_channels=3, out_put_channels=args.class_num)
-    elif args.net == 'ScConv_SPP_TransUnet':
-        model: ScConv_SPP_TransUnet = ScConv_SPP_TransUnet(in_channels=3, out_put_channels=args.class_num)
     elif args.net == 'scSE_SPP_TransUnet':
         model: scSE_SPP_TransUnet = scSE_SPP_TransUnet(in_channels=3, out_put_channels=args.class_num)
     elif args.net == 'SE_SPP_Leaky_TransUnet':
@@ -491,8 +483,6 @@ def main():
         model: MedSAM = MedSAM(in_channels=3, output_channels=args.class_num)
     elif args.net == 'SAM_VMNet':
         model = SAM_VMNet(in_channels=3, output_channels=args.class_num)
-    elif args.net == 'UNetX':
-        model = UNetX(in_channels=3, out_channels=args.class_num)
     elif args.net == 'MambaUNet':
         model = MambaUNet(in_channels=3, out_channels=args.class_num)
 
