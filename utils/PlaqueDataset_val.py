@@ -3,7 +3,6 @@ import os
 import numpy as np
 from skimage import io
 import torch
-from utils.image_preprocessing import CombinedFilter
 
 class PlaqueDataset_val(data.Dataset):
     def __init__(self, root_path='dataset', train=False, transform=None, roi=False):
@@ -16,13 +15,6 @@ class PlaqueDataset_val(data.Dataset):
         #     self.contour_device = torch.device('cuda:2')
         #     self.contour_model = torch.load('oct_contour_detection.pth', map_location='cpu').to(self.contour_device)
         self.images, self.gts = self.__load_data__(train, roi)
-        self.filter = CombinedFilter(
-            gaussian_kernel_size=3,
-            gaussian_sigma=0.3,
-            nlm_h=7,
-            nlm_template_size=5,
-            nlm_search_size=15
-        )
 
     def __getitem__(self, index: int):
         if self.train:
@@ -50,12 +42,7 @@ class PlaqueDataset_val(data.Dataset):
                 img.transpose((2, 0, 1))).float()  # 这里的tranpose是把图像从H W C变成 C H W的形状,上面的transform里面也有隐含的相同操作
             gt = torch.from_numpy(gt).float()
 
-        filtered_image = self.filter(img)
-        if self.transform:
-            filtered_image = self.transform(filtered_image)
-            gt = self.transform(gt)
-
-        return filtered_image, gt
+        return img, gt
 
     def __len__(self) -> int:
         if self.train:
