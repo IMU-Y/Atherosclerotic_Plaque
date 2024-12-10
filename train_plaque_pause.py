@@ -152,7 +152,7 @@ def train(model, train_loader, optimizer, scheduler, val_loader):
     # 加载保存的模型（训练过程中断的模型）
     start_epoch = 0
     if args.resume:
-        path_checkpoint = "/root/autodl-tmp/plaque/checkpoint/MambaUNet/MambaUNet_plaque_epoch_14_lr_0.05.pth"  # 断点路径
+        path_checkpoint = "/root/autodl-tmp/plaque/checkpoint/MambaUNet/MambaUNet_plaque_epoch_19_lr_0.05.pth"  # 断点路径
         checkpoint = torch.load(path_checkpoint)  # 加载断点
 
         model.load_state_dict(checkpoint['net'])  # 加载模型可学习参数
@@ -489,13 +489,24 @@ def main():
     transformation = transforms.Compose([
         transforms.ToTensor(),  # 使用自定义ToTensor
     ])
-    # load data 这里我的torchvision版本不能传transformation
-    train_set = PlaqueDataset(root_path=args.root_path, train=True, transform=transformation, roi=args.roi)
-    # train_set = PlaqueDataset(root_path=args.root_path, train=True, transform=None, roi=args.roi)
+    # 加载测试集，使用filtered_images的数据
+    train_set = PlaqueDataset(
+        root_path=args.root_path, 
+        train=True, 
+        transform=transformation,
+        roi=args.roi, 
+        train_list='train_pair_filtered.lst'
+    )
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
 
     # 验证集
-    val_set = PlaqueDataset_val(root_path=args.root_path, train=True, transform=transformation, roi=args.roi)
+    val_set = PlaqueDataset_val(
+        root_path=args.root_path, 
+        train=True, 
+        transform=transformation,
+        roi=args.roi,
+        train_list='val_pair_filtered.lst'
+    )
     val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=True)
 
     # create optimizer

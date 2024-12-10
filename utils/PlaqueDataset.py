@@ -6,15 +6,13 @@ import torch
 
 
 class PlaqueDataset(data.Dataset):
-    def __init__(self, root_path='dataset', train=False, transform=None, roi=False):
+    def __init__(self, root_path='dataset', train=False, transform=None, roi=False, train_list='train_pair.lst'):
         super(PlaqueDataset, self).__init__()
         self.train = train
         self.root_path = root_path
         self.transform = transform
         self.roi = roi
-        # if roi:
-        #     self.contour_device = torch.device('cuda:2')
-        #     self.contour_model = torch.load('oct_contour_detection.pth', map_location='cpu').to(self.contour_device)
+        self.train_list = train_list
         self.images, self.gts = self.__load_data__(train, roi)
 
     def __getitem__(self, index: int):
@@ -55,8 +53,9 @@ class PlaqueDataset(data.Dataset):
         if roi:
             aug_file_name = 'train_pair_roi.lst'
         else:
-            aug_file_name = 'train_pair.lst'
+            aug_file_name = self.train_list
         if train:
+            print(aug_file_name,'用来判断测试数据集是否加过滤镜')
             images_list, gts_list = [], []
             with open(os.path.join(self.root_path, aug_file_name), 'r') as file:
                 lines = file.readlines()
