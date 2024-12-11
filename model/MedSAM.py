@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Tuple
-from model.unet_parts import DoubleConv
+from model.fusionModel.unet_parts import DoubleConv
 
 class MedSAM(nn.Module):
     def __init__(self, in_channels=3, output_channels=5, image_size=384):

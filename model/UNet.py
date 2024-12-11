@@ -1,4 +1,4 @@
-from model.unet_parts import *
+from model.fusionModel.unet_parts import *
 
 class UNet(nn.Module):
     def __init__(self, in_channels=3, output_channels=2, bilinear=True):

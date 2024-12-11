@@ -11,83 +11,10 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from PIL import Image
 
-from model.ASPP_UNet import ASPP_UNet
-from model.Att_UNet import Att_UNet
-# from model.BAM_TransUnet_SPP import BAM_TransUnet_SPP
-# from model.CBAM_TransUnet_SPP import CBAM_TransUnet_SPP
-from model.CBAM_TransUnet_SPP2 import CBAM_TransUnet_SPP2
-from model.CE_UNet import CE_Net_OCT
-from model.CS_UNet import CS_UNet
-from model.CS_UNet2 import CS_UNet2
-from model.DA_SPP_Down_UNet import DA_SPP_Down_UNet
-# from model.DA_SPP_UNet import DA_SPP_UNet
-# from model.DA_SPP_UNet2 import DA_SPP_UNet2
-# from model.DA_TransUnet_SPP import DA_Trans_Unet_SPP
-# from model.DA_TransUnet_SPP3 import DA_TransUnet_SPP3
-from model.DA_Trans_Unet_SPP2 import DA_Trans_Unet_SPP2
-from model.DA_UNet import DA_UNet
-from model.DA_UNet2 import DA_UNet2
-from model.ECA_TransUnet_SPP import ECA_TransUnet_SPP
-from model.GAM_SPP_TransUnet import GAM_SPP_TransUnet
-from model.GLCM_UNet import GLCM_UNet
-from model.MyModel import MyModel
-from model.MyPureUNet import MyPureUNet
-from model.PSP_DA_fusion import PSP_DA_fusion
-from model.PSP_SE_SPP_Leaky_TransUnet import PSP_SE_SPP_Leaky_TransUnet
-from model.PSP_SE_fusion import PSP_SE_fusion
-from model.PSP_TransUnet_ASPP2 import PSP_TransUnet_ASPP2
-from model.PSP_fusion import PSP_fusion
-from model.PSP_fusion2 import PSP_fusion2
-from model.PlaqueNet import PlaqueNet
-from model.PlaqueNet_CBAM_IN import PlaqueNet_CBAM_IN
-from model.PureTransUNet import PureTransUNet
-# from model.Pos_TransUNet import Pos_TransUNet
-# from model.PureTransUNet import PureTransUNet
-from model.PureUNet import PureUNet
-from model.PureUNet_BAM import PureUNet_BAM
-from model.PureUNet_SPP import PureUNet_SPP
-from model.R2Unet import R2U_Net
-from model.SE_SPP_Leaky_TransUnet import SE_SPP_Leaky_TransUnet
-from model.SE_TransUnet_SPP import SE_TransUnet_SPP
-# from model.SE_TransUnet_SPP2 import SE_TransUnet_SPP2
-# from model.SE_UNet2 import SE_UNet2
-from model.SE_UNet import SE_UNet
-from model.SE_UNet_CBAM import SE_UNet_CBAM
-from model.SE_fusion import SE_fusion
-from model.SE_max_fusion import SE_max_fusion
-from model.SK_concat_fusion import SK_concat_fusion
-from model.SK_fuison_direct import SK_fusion_direct
-from model.SK_fusion import SK_fusion
-from model.SS_UNet import SS_UNet
-from model.ScribblePrompt import ScribblePrompt
-# from model.ScConv_SPP_TransUnet import ScConv_SPP_TransUnet
-from model.TransUnet1block import TransUnet1block
-from model.TransUnet2block import TransUnet2block
-from model.TransUnet3block import TransUnet3block
-from model.TransUnet4block import TransUnet4block
-from model.TransUnet5block import TransUnet5block
-from model.TransUnet6block import TransUnet6block
-from model.TransUnet7block import TransUnet7block
-from model.TransUnet8block import TransUnet8block
-from model.TransUnet_ASPP import TransUnet_ASPP
-from model.TransUnet_ASPP2 import TransUnet_ASPP2
-from model.TransUnet_ASPP_CBAM_decoder import TransUnet_ASPP_CBAM_decoder
-from model.TransUnet_DA_SPP import TransUnet_DA_SPP
-from model.TransUnet_SE_SPP import TransUnet_SE_SPP
-from model.TransUnet_atten_ASPP import TransUnet_atten_ASPP
-# from model.TransUnet import TransUnet
-from model.Trans_Unet_SPP import Trans_Unet_SPP
-from model.UNet import UNet
-from model.UNet2 import UNet2
-from model.fusion_model import fusion_model
-from model.scSE_SPP_TransUnet import scSE_SPP_TransUnet
-from model.PureUNet_SK_L import PureUNet_SK_L
 from utils.FocalLoss import FocalLossMutiClass
 from utils.PlaqueDataset import PlaqueDataset
 from utils.PlaqueDataset_val import PlaqueDataset_val
-from model.MedSAM import MedSAM
-from model.SAM_VMNet import SAM_VMNet
-from model.UNetX import UNetX
+
 from model.MambaUNet import MambaUNet
 torch.cuda.set_per_process_memory_fraction(0.99)
 # torch.cuda.set_per_process_memory_growth(True)
@@ -322,178 +249,26 @@ def train(model, train_loader, optimizer, scheduler, val_loader):
 
 
 def main():
-    # create model
-    if args.net == 'MyModel':
-        model: MyModel = MyModel(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'PlaqueNet':
-        model: PlaqueNet = PlaqueNet(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'UNet':
-        model: UNet = UNet(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'UNet2':
-        model: UNet = UNet2(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'PureUNet':
-        model: PureUNet = PureUNet(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'DA_UNet':
-        model: DA_UNet = DA_UNet(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'DA_UNet2':
-        model: DA_UNet = DA_UNet2(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'CE_UNet':
-        model: CE_Net_OCT = CE_Net_OCT(output_channels=args.class_num)
-    elif args.net == 'ASPP_UNet':
-        model: ASPP_UNet = ASPP_UNet(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'CS_UNet':
-        model: CS_UNet = CS_UNet(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'CS_UNet2':
-        model: CS_UNet2 = CS_UNet2(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'GLCM_UNet':
-        model: GLCM_UNet = GLCM_UNet(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'SS_UNet':
-        model: SS_UNet = SS_UNet(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'Att_UNet':
-        model: Att_UNet = Att_UNet(img_ch=3, output_ch=args.class_num)
-    # elif args.net == 'SE_UNet2':
-    #     model: SE_UNet2 = SE_UNet2(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'SE_UNet':
-        model: SE_UNet = SE_UNet(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'PlaqueNet_CBAM_IN':
-        model: PlaqueNet_CBAM_IN = PlaqueNet_CBAM_IN(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'PureUNet_BAM':
-        model: PureUNet = PureUNet_BAM(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'MyPureUNet':
-        model: MyPureUNet = MyPureUNet(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'SE_UNet_CBAM':
-        model: SE_UNet_CBAM = SE_UNet_CBAM(in_channels=3, output_channels=args.class_num, bilinear=True)
-    elif args.net == 'PureUNet_SPP':
-        model: PureUNet_SPP = PureUNet_SPP(in_channels=3, output_channels=args.class_num, bilinear=True)
-    # elif args.net == 'TransUnet':
-    #     model: TransUnet = TransUnet(all_in_channels=3,img=370, output_channels=args.class_num,bilinear=True)
-    # elif args.net == 'Pos_TransUNet':
-    #     model: Pos_TransUNet = Pos_TransUNet(img_dim=384, in_channels=3, out_put_channels=args.class_num)
-    elif args.net == 'PureTransUNet':
-        model: PureTransUNet = PureTransUNet(img_dim=384, in_channels=3, out_put_channels=args.class_num)
-    # elif args.net == 'DA_SPP_UNet':
-    #     model: DA_SPP_UNet = DA_SPP_UNet(in_channels=3, out_put_channels=args.class_num)
-    # elif args.net == 'DA_SPP_UNet2':
-    #     model: DA_SPP_UNet2 = DA_SPP_UNet2(in_channels=3, out_put_channels=args.class_num)
-    elif args.net == 'DA_SPP_Down_UNet':
-        model: DA_SPP_Down_UNet = DA_SPP_Down_UNet(in_channels=3, out_put_channels=args.class_num)
-    elif args.net == 'Trans_Unet_SPP':
-        model: Trans_Unet_SPP = Trans_Unet_SPP(in_channels=3, out_put_channels=args.class_num)
-    # elif args.net == 'DA_Trans_Unet_SPP':
-    #     model: DA_Trans_Unet_SPP = DA_Trans_Unet_SPP(in_channels=3, out_put_channels=args.class_num)
-    # elif args.net == 'DA_Trans_Unet_SPP2':
-    #     model: DA_Trans_Unet_SPP2 = DA_Trans_Unet_SPP2(in_channels=3, out_put_channels=args.class_num)
-    # elif args.net == 'DA_TransUnet_SPP3':
-    #     model: DA_TransUnet_SPP3 = DA_TransUnet_SPP3(in_channels=3, out_put_channels=args.class_num)
-    # elif args.net == 'BAM_TransUnet_SPP':
-    #     model: BAM_TransUnet_SPP = BAM_TransUnet_SPP(in_channels=3, out_put_channels=args.class_num)
-    # elif args.net == 'CBAM_TransUnet_SPP':
-    #     model: CBAM_TransUnet_SPP = CBAM_TransUnet_SPP(in_channels=3, out_put_channels=args.class_num)
-    elif args.net == 'SE_TransUnet_SPP':
-        model: SE_TransUnet_SPP = SE_TransUnet_SPP(in_channels=3, out_put_channels=args.class_num)
-    # elif args.net == 'SE_TransUnet_SPP2':
-    #     model: SE_TransUnet_SPP2 = SE_TransUnet_SPP2(in_channels=3, out_put_channels=args.class_num)
-    elif args.net == 'ECA_TransUnet_SPP':
-        model: ECA_TransUnet_SPP = ECA_TransUnet_SPP(in_channels=3, out_put_channels=args.class_num)
-    elif args.net == 'CBAM_TransUnet_SPP2':
-        model: CBAM_TransUnet_SPP2 = CBAM_TransUnet_SPP2(in_channels=3, out_put_channels=args.class_num)
-    elif args.net == 'GAM_SPP_TransUnet':
-        model: GAM_SPP_TransUnet = GAM_SPP_TransUnet(in_channels=3, out_put_channels=args.class_num)
-    elif args.net == 'ScConv_SPP_TransUnet':
-        model: ScConv_SPP_TransUnet = ScConv_SPP_TransUnet(in_channels=3, out_put_channels=args.class_num)
-    elif args.net == 'scSE_SPP_TransUnet':
-        model: scSE_SPP_TransUnet = scSE_SPP_TransUnet(in_channels=3, out_put_channels=args.class_num)
-    elif args.net == 'SE_SPP_Leaky_TransUnet':
-        model: SE_SPP_Leaky_TransUnet = SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
+    # if args.net == 'UNet':
+    #     model: UNet = UNet(in_channels=3, output_channels=args.class_num, bilinear=True)
+    # elif args.net == 'fusion_model':
+    #     model1 = TransUnet_ASPP2(in_channels=3, out_put_channels=args.class_num)
+    #     model2 = SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
+    #     model: fusion_model = fusion_model(model1, model2)
+    # elif args.net == 'max_fusion_model':#效果很好
+    #     model1 = TransUnet_ASPP2(in_channels=3, out_put_channels=args.class_num)
+    #     model2 = SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
+    #     model: fusion_model = fusion_model(model1, model2)
+    # elif args.net == 'SK_fusion_direct':#16epoch效果最佳
+    #     model1 = TransUnet_ASPP2(in_channels=3, out_put_channels=args.class_num)
+    #     model2 = SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
+    #     model: SK_fusion_direct = SK_fusion_direct(model1, model2)
+    # elif args.net == 'PSP_fusion':#效果不错
+    #     model1 = PSP_TransUnet_ASPP2(in_channels=3, out_put_channels=args.class_num)
+    #     model2 = PSP_SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
+    #     model: PSP_fusion = PSP_fusion(model1, model2)
 
-    elif args.net == 'TransUnet_SE_SPP':
-        model: TransUnet_SE_SPP = TransUnet_SE_SPP(in_channels=3, out_put_channels=args.class_num)
-    elif args.net == 'TransUnet_DA_SPP':
-        model: TransUnet_DA_SPP = TransUnet_DA_SPP(in_channels=3, out_put_channels=args.class_num)
-    elif args.net == 'TransUnet3block':
-        model: TransUnet3block = TransUnet3block(in_channels=3, out_put_channels=args.class_num)
-    elif args.net == 'TransUnet2block':
-        model: TransUnet2block = TransUnet2block(in_channels=3, out_put_channels=args.class_num)
-    elif args.net == 'TransUnet1block':
-        model: TransUnet1block = TransUnet1block(in_channels=3, out_put_channels=args.class_num)
-    elif args.net == 'TransUnet4block':
-        model: TransUnet4block = TransUnet4block(in_channels=3, out_put_channels=args.class_num)
-    elif args.net == 'TransUnet5block':
-        model: TransUnet5block = TransUnet5block(in_channels=3, out_put_channels=args.class_num)
-    elif args.net == 'TransUnet6block':
-        model: TransUnet6block = TransUnet6block(in_channels=3, out_put_channels=args.class_num)
-    if args.net == 'TransUnet7block':
-        model: TransUnet7block = TransUnet7block(in_channels=3, out_put_channels=args.class_num)
-    if args.net == 'TransUnet8block':
-        model: TransUnet8block = TransUnet8block(in_channels=3, out_put_channels=args.class_num)
-    if args.net == 'TransUnet_ASPP':
-        model: TransUnet_ASPP = TransUnet_ASPP(in_channels=3, out_put_channels=args.class_num)
-    if args.net == 'TransUnet_ASPP_CBAM_decoder':
-        model: TransUnet_ASPP_CBAM_decoder = TransUnet_ASPP_CBAM_decoder(in_channels=3, out_put_channels=args.class_num)
-    if args.net == 'TransUnet_atten_ASPP':
-        model: TransUnet_atten_ASPP = TransUnet_atten_ASPP(in_channels=3, out_put_channels=args.class_num)
-    if args.net == 'R2U_Net':
-        model: R2U_Net = R2U_Net(in_channels=3, out_put_channels=args.class_num)
-    elif args.net == 'CE_Net_OCT':
-        model: CE_Net_OCT = CE_Net_OCT(output_channels=args.class_num)
-    elif args.net == 'fusion_model':
-        model1 = TransUnet_ASPP2(in_channels=3, out_put_channels=args.class_num)
-        model2 = SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
-        model: fusion_model = fusion_model(model1, model2)
-    elif args.net == 'max_fusion_model':#效果很好
-        model1 = TransUnet_ASPP2(in_channels=3, out_put_channels=args.class_num)
-        model2 = SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
-        model: fusion_model = fusion_model(model1, model2)
-    elif args.net == 'SK_fusion_direct':#16epoch效果最佳
-        model1 = TransUnet_ASPP2(in_channels=3, out_put_channels=args.class_num)
-        model2 = SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
-        model: SK_fusion_direct = SK_fusion_direct(model1, model2)
-    elif args.net == 'SK_fusion':
-        model1 = TransUnet_ASPP2(in_channels=3, out_put_channels=args.class_num)
-        model2 = SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
-        model: SK_fusion = SK_fusion(model1, model2)
-    elif args.net == 'SE_fusion':
-        model1 = TransUnet_ASPP2(in_channels=3, out_put_channels=args.class_num)
-        model2 = SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
-        model: SE_fusion = SE_fusion(model1, model2)
-    elif args.net == 'SK_concat_fusion':
-        model1 = TransUnet_ASPP2(in_channels=3, out_put_channels=args.class_num)
-        model2 = SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
-        model: SK_concat_fusion = SK_concat_fusion(model1, model2)
-    elif args.net == 'SE_max_fusion':#效果不好
-        model1 = TransUnet_ASPP2(in_channels=3, out_put_channels=args.class_num)
-        model2 = SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
-        model: SE_max_fusion = SE_max_fusion(model1, model2)
-
-    elif args.net == 'PSP_fusion':#效果不错
-        model1 = PSP_TransUnet_ASPP2(in_channels=3, out_put_channels=args.class_num)
-        model2 = PSP_SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
-        model: PSP_fusion = PSP_fusion(model1, model2)
-    elif args.net == 'PSP_fusion2':
-        model1 = PSP_TransUnet_ASPP2(in_channels=3, out_put_channels=args.class_num)
-        model2 = PSP_SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
-        model: PSP_fusion2 = PSP_fusion2(model1, model2)
-    elif args.net == 'PSP_SE_fusion':
-        model1 = PSP_TransUnet_ASPP2(in_channels=3, out_put_channels=args.class_num)
-        model2 = PSP_SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
-        model: PSP_SE_fusion = PSP_SE_fusion(model1, model2)
-    elif args.net == 'PSP_DA_fusion':
-        model1 = PSP_TransUnet_ASPP2(in_channels=3, out_put_channels=args.class_num)
-        model2 = PSP_SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
-        model: PSP_DA_fusion = PSP_DA_fusion(model1, model2)
-
-    elif args.net == 'TransUnet_ASPP2':
-        model: TransUnet_ASPP2 = TransUnet_ASPP2(in_channels=3, out_put_channels=args.class_num)
-        # model2 = SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
-        # model: fusion_model = fusion_model(model1, model2)
-
-    elif args.net == 'MedSAM':
-        model: MedSAM = MedSAM(in_channels=3, output_channels=args.class_num)
-    elif args.net == 'SAM_VMNet':
-        model = SAM_VMNet(in_channels=3, output_channels=args.class_num)
-    elif args.net == 'UNetX':
-        model = UNetX(in_channels=3, out_channels=args.class_num)
-    elif args.net == 'MambaUNet':
+    if args.net == 'MambaUNet':
         model = MambaUNet(in_channels=3, out_channels=args.class_num)
 
     transformation = transforms.Compose([
