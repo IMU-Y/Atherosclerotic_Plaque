@@ -23,7 +23,7 @@
 
 # 训练和测试代码
 
-python train_plaque_pause.py --gpu 0 --net SAM_VMNet
-python test_plaque.py --gpu 0 --model products/SAM_VMNet_plaque_lr_0.05_epoch_20.pth
+python train_plaque_pause.py --gpu 0 --net MambaUNet
+python test_plaque.py --gpu 0 --model products/MambaUNet_plaque_lr_0.05_epoch_20.pth
 
 pip install mamba-ssm--no-build-isolation
