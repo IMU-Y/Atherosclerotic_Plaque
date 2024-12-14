@@ -79,7 +79,7 @@ def train(model, train_loader, optimizer, scheduler, val_loader):
     # 加载保存的模型（训练过程中断的模型）
     start_epoch = 0
     if args.resume:
-        path_checkpoint = "/root/autodl-tmp/plaque/checkpoint/MambaUNet/MambaUNet_plaque_epoch_18_lr_0.05.pth"  # 断点路径
+        path_checkpoint = "/root/autodl-tmp/plaque/checkpoint/MambaUNet/MambaUNet_plaque_epoch_6_lr_0.05.pth"  # 断点路径
         checkpoint = torch.load(path_checkpoint)  # 加载断点
 
         model.load_state_dict(checkpoint['net'])  # 加载模型可学习参数

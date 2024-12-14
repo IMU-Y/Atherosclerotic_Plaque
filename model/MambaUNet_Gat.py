@@ -3,6 +3,34 @@ import torch.nn as nn
 from mamba_ssm import Mamba
 import torch.nn.functional as F
 
+class GCT(nn.Module):
+    """门控通道转换模块"""
+    def __init__(self, num_channels, epsilon=1e-5, mode='l2', after_relu=False):
+        super(GCT, self).__init__()
+        self.alpha = nn.Parameter(torch.ones(1, num_channels, 1, 1))
+        self.gamma = nn.Parameter(torch.zeros(1, num_channels, 1, 1))
+        self.beta = nn.Parameter(torch.zeros(1, num_channels, 1, 1))
+        self.epsilon = epsilon
+        self.mode = mode
+        self.after_relu = after_relu
+        
+    def forward(self, x):
+        if self.mode == 'l2':
+            embedding = (x.pow(2).sum((2, 3), keepdim=True) +
+                         self.epsilon).pow(0.5) * self.alpha
+            norm = self.gamma / \
+                (embedding.pow(2).mean(dim=1, keepdim=True) + self.epsilon).pow(0.5)
+        elif self.mode == 'l1':
+            if not self.after_relu:
+                _x = torch.abs(x)
+            else:
+                _x = x
+            embedding = _x.sum((2, 3), keepdim=True) * self.alpha
+            norm = self.gamma / \
+                (torch.abs(embedding).mean(dim=1, keepdim=True) + self.epsilon)
+        gate = 1. + torch.tanh(embedding * norm + self.beta)
+        return x * gate
+
 class SEBlock(nn.Module):
     """Squeeze-and-Excitation块"""
     def __init__(self, channel, reduction=16):
@@ -36,7 +64,7 @@ class MambaBlock(nn.Module):
         self.norm = nn.LayerNorm(d_model)
         # 添加SE注意力
         self.se = SEBlock(d_model)
-        # 可选���添加投影层确保残差连接维度匹配
+        # 可选：添加投影层确保残差连接维度匹配
         self.proj = nn.Conv2d(d_model, d_model, 1) if d_model != d_model else nn.Identity()
         
     def forward(self, x):
@@ -60,6 +88,15 @@ class MambaBlock(nn.Module):
         
         return x
 
+class SkipEnhancer(nn.Module):
+    """跳跃连接增强模块"""
+    def __init__(self, channels):
+        super().__init__()
+        self.gct = GCT(channels)
+        
+    def forward(self, x):
+        return self.gct(x)
+
 class DownBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -78,116 +115,11 @@ class DownBlock(nn.Module):
         p = self.pool(x)
         return skip, p
 
-class AdaptiveFeatureRefinement(nn.Module):
-    """自适应特征优化模块"""
-    def __init__(self, channels):
-        super().__init__()
-        self.channels = channels
-        
-        # 多尺度特征提取
-        self.branch1 = nn.Sequential(
-            nn.Conv2d(channels, channels//4, 1),
-            nn.BatchNorm2d(channels//4),
-            nn.ReLU(inplace=True)
-        )
-        self.branch2 = nn.Sequential(
-            nn.Conv2d(channels, channels//4, 3, padding=1, dilation=1),
-            nn.BatchNorm2d(channels//4),
-            nn.ReLU(inplace=True)
-        )
-        self.branch3 = nn.Sequential(
-            nn.Conv2d(channels, channels//4, 3, padding=2, dilation=2),
-            nn.BatchNorm2d(channels//4),
-            nn.ReLU(inplace=True)
-        )
-        self.branch4 = nn.Sequential(
-            nn.Conv2d(channels, channels//4, 3, padding=4, dilation=4),
-            nn.BatchNorm2d(channels//4),
-            nn.ReLU(inplace=True)
-        )
-        
-        # 通道注意力
-        self.channel_gate = nn.Sequential(
-            nn.AdaptiveAvgPool2d(1),
-            nn.Conv2d(channels, channels//2, 1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(channels//2, channels, 1),
-            nn.Sigmoid()
-        )
-        
-        # 空间注意力
-        self.spatial_gate = nn.Sequential(
-            nn.Conv2d(channels, 1, 7, padding=3),
-            nn.BatchNorm2d(1),
-            nn.Sigmoid()
-        )
-        
-        # 特征融合
-        self.fusion = nn.Sequential(
-            nn.Conv2d(channels, channels, 1),
-            nn.BatchNorm2d(channels),
-            nn.ReLU(inplace=True)
-        )
-        
-    def forward(self, x):
-        # 多尺度特征提取
-        feat1 = self.branch1(x)
-        feat2 = self.branch2(x)
-        feat3 = self.branch3(x)
-        feat4 = self.branch4(x)
-        multi_scale = torch.cat([feat1, feat2, feat3, feat4], dim=1)
-        
-        # 通道注意力
-        channel_att = self.channel_gate(multi_scale)
-        feat_refined = multi_scale * channel_att
-        
-        # 空间注意力
-        spatial_att = self.spatial_gate(feat_refined)
-        feat_refined = feat_refined * spatial_att
-        
-        # 残差连接
-        output = self.fusion(feat_refined) + x
-        return output
-
-class SkipFusion(nn.Module):
-    """跳跃连接融合模块"""
-    def __init__(self, in_channels):
-        super().__init__()
-        self.refine = AdaptiveFeatureRefinement(in_channels)
-        
-        # 边缘增强
-        self.edge_enhance = nn.Sequential(
-            nn.Conv2d(in_channels, in_channels, 3, padding=1),
-            nn.BatchNorm2d(in_channels),
-            nn.ReLU(inplace=True)
-        )
-        
-        # 特征重标定
-        self.rescale = nn.Sequential(
-            nn.Conv2d(in_channels*2, in_channels, 1),
-            nn.BatchNorm2d(in_channels),
-            nn.Sigmoid()
-        )
-        
-    def forward(self, skip, up):
-        # 优化跳跃连接特征
-        skip_refined = self.refine(skip)
-        
-        # 边缘增强
-        edge_features = self.edge_enhance(skip_refined)
-        
-        # 特征融合和重标定
-        concat_feat = torch.cat([edge_features, up], dim=1)
-        scale_factor = self.rescale(concat_feat)
-        
-        output = skip_refined * scale_factor + up
-        return output
-
 class UpBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
-        self.up = nn.ConvTranspose2d(in_channels, out_channels, 2, stride=2)
-        self.skip_fusion = SkipFusion(out_channels)
+        self.up = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2)
+        self.skip_enhance = SkipEnhancer(out_channels)
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, 3, padding=1),
             nn.BatchNorm2d(out_channels),
@@ -197,9 +129,8 @@ class UpBlock(nn.Module):
         
     def forward(self, x1, x2):
         x1 = self.up(x1)
-        # 使用改进的跳跃连接融合
-        x = self.skip_fusion(x2, x1)
-        x = torch.cat([x, x1], dim=1)
+        x2 = self.skip_enhance(x2)  # 增强跳跃连接
+        x = torch.cat([x2, x1], dim=1)
         x = self.conv(x)
         x = self.mamba(x)
         return x
@@ -231,8 +162,10 @@ class MambaUNet(nn.Module):
         # 输出层
         self.final = nn.Conv2d(64, out_channels, 1)
         
+        self._initialize_weights()
+        
     def forward(self, x):
-        # ��码器路径
+        # 编码器路径
         x1, p1 = self.enc1(x)
         x2, p2 = self.enc2(p1)
         x3, p3 = self.enc3(p2)

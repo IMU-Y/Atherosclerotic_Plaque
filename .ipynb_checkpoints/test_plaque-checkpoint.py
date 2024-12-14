@@ -1,5 +1,5 @@
 import torch
-# from model.MyModel import MyModel
+from model.MyModel import MyModel
 import argparse
 from utils.PlaqueDataset import PlaqueDataset
 from utils.PlaqueDataset_val import PlaqueDataset_val
@@ -18,7 +18,7 @@ import PIL.Image as Image
 import sklearn.metrics as metrics
 from utils.statistics import confusion_matrix_statistics
 import pandas as pd
-# from model.PureUNet_BAM import PureUNet_BAM
+from model.PureUNet_BAM import PureUNet_BAM
 import warnings
 # 在代码块中禁用特定警告
 with warnings.catch_warnings():
