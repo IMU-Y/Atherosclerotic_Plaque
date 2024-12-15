@@ -1,26 +1,22 @@
 import torch.nn as nn
 import torch
 class fusion_model(nn.Module):
-    def __init__(self, model1, model2, in_channels=3, out_put_channels=5, weights=None):
+    def __init__(self, mamba_model, trans_model, in_channels=3, out_put_channels=5):
         super(fusion_model, self).__init__()
-        self.model1 = model1
-        self.model2 = model2
-        self.weights = weights if weights is not None else [0.55, 0.45]
+        self.mamba_model = mamba_model
+        self.trans_model = trans_model
+        print('max_fusion_model')
+        
+    def get_mamba_parameters(self):
+        """获取MambaUNet部分的参数"""
+        return self.mamba_model.parameters()
+        
+    def get_trans_parameters(self):
+        """获取TransUNet部分的参数"""
+        return self.trans_model.parameters()
 
     def forward(self, x):
-        # input 是输入图像
-        # 使用模型1进行前向传播
-        seg_map1 = self.model1(x)
-
-        # 使用模型2进行前向传播
-        seg_map2 = self.model2(x)
-
-
-
-        # 根据权重加权平均
-        fused_probs = self.weights[0] * seg_map1 + self.weights[1] * seg_map2
-
-
-
-
+        mamba_out = self.mamba_model(x)
+        trans_out = self.trans_model(x)
+        fused_probs, _ = torch.max(torch.stack([mamba_out, trans_out], dim=1), dim=1)
         return fused_probs

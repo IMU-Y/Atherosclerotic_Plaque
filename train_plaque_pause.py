@@ -140,8 +140,9 @@ device = torch.device("cuda:{}".format(args.gpu))
 # pass
 
 
-def train(model, train_loader, optimizer, scheduler, val_loader):
-    print(args)
+def train(model, train_loader, optimizers, schedulers, val_loader):
+    mamba_optimizer, trans_optimizer = optimizers
+    mamba_scheduler, trans_scheduler = schedulers
 
     # 多gpu
     # if torch.cuda.device_count() > 1:
@@ -152,14 +153,20 @@ def train(model, train_loader, optimizer, scheduler, val_loader):
     # 加载保存的模型（训练过程中断的模型）
     start_epoch = 0
     if args.resume:
-        path_checkpoint = "/root/autodl-tmp/plaque/checkpoint/MambaUNet/MambaUNet_plaque_epoch_19_lr_0.05.pth"  # 断点路径
+        path_checkpoint = "/root/autodl-tmp/plaque/checkpoint/max_fusion_model/max_fusion_model_plaque_epoch_8_lr_0.05.pth"  # 断点路径
         checkpoint = torch.load(path_checkpoint)  # 加载断点
 
         model.load_state_dict(checkpoint['net'])  # 加载模型可学习参数
 
-        optimizer.load_state_dict(checkpoint['optimizer'])  # 加载优化器参数
+        # 加载两个优化器的状态
+        mamba_optimizer.load_state_dict(checkpoint['mamba_optimizer'])
+        trans_optimizer.load_state_dict(checkpoint['trans_optimizer'])
+        
         start_epoch = checkpoint['epoch']  # 设置开始的epoch
-        scheduler.load_state_dict(checkpoint['lr_schedule'])
+        # 加载两个调度器的状态
+        mamba_scheduler.load_state_dict(checkpoint['mamba_scheduler'])
+        trans_scheduler.load_state_dict(checkpoint['trans_scheduler'])
+
 
     # model = torch.load("/home/jpl-wz/unet_practice/checkpoint/PureUNet_BAM_plaque_epoch_3_lr_0.05.pth")
 
@@ -187,7 +194,8 @@ def train(model, train_loader, optimizer, scheduler, val_loader):
             #     print(batch_index)
             images, gts = images.to(device), gts.to(device)
             gts.squeeze_(dim=1)
-            optimizer.zero_grad()
+            mamba_optimizer.zero_grad()
+            trans_optimizer.zero_grad()
             outputs = model(images)
             # cross entroy needs (N,H,W) long
             gts = gts.long().squeeze(dim=1)  # (N, H, W)
@@ -209,7 +217,8 @@ def train(model, train_loader, optimizer, scheduler, val_loader):
             # loss = Loss(outputs, gts)
             # total_loss += loss.detach().clone().cpu().item()
             loss.backward()
-            optimizer.step()
+            mamba_optimizer.step()
+            trans_optimizer.step()
 
             if batch_index % 50 == 0:
                 now = time.time()
@@ -220,7 +229,9 @@ def train(model, train_loader, optimizer, scheduler, val_loader):
             batch_time = time.time()
             pass
 
-        scheduler.step()
+        # 更新学习率
+        mamba_scheduler.step()
+        trans_scheduler.step()
         
         model.eval()
         batch_time1 = time.time()
@@ -286,9 +297,11 @@ def train(model, train_loader, optimizer, scheduler, val_loader):
         # 保存模型参数等信息
         checkpoint = {
             "net": model.state_dict(),
-            'optimizer': optimizer.state_dict(),
+            'mamba_optimizer': mamba_optimizer.state_dict(),
+            'trans_optimizer': trans_optimizer.state_dict(),
             "epoch": epoch,
-            'lr_schedule': scheduler.state_dict()
+            'mamba_scheduler': mamba_scheduler.state_dict(),
+            'trans_scheduler': trans_scheduler.state_dict()
         }
         if not os.path.isdir("./checkpoint/{}".format(args.net)):
             os.mkdir("./checkpoint/{}".format(args.net))
@@ -442,7 +455,8 @@ def main():
         model: fusion_model = fusion_model(model1, model2)
     elif args.net == 'max_fusion_model':#效果很好
         model1 = TransUnet_ASPP2(in_channels=3, out_put_channels=args.class_num)
-        model2 = SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
+        model2 = MambaUNet(in_channels=3, out_channels=args.class_num)
+        # model2 = SE_SPP_Leaky_TransUnet(in_channels=3, out_put_channels=args.class_num)
         model: fusion_model = fusion_model(model1, model2)
     elif args.net == 'SK_fusion_direct':#16epoch效果最佳
         model1 = TransUnet_ASPP2(in_channels=3, out_put_channels=args.class_num)
@@ -508,17 +522,24 @@ def main():
     val_set = PlaqueDataset_val(root_path=args.root_path, train=True, transform=transformation, roi=args.roi)
     val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=True)
 
-    # create optimizer
-    optimizer = optim.AdamW(
-        model.parameters(),
-        lr=0.0001,  # 降低初始学习率
+    # MambaUNet的优化器
+    mamba_optimizer = optim.AdamW(
+        model.get_mamba_parameters(),
+        lr=0.0001,
         weight_decay=0.01,
         betas=(0.9, 0.999)
     )
-
-    # 学习率调度器
-    scheduler = torch.optim.lr_scheduler.OneCycleLR(
-        optimizer,
+    
+    # TransUNet的优化器
+    trans_optimizer = optim.SGD(
+        model.get_trans_parameters(),
+        lr=args.lr,
+        momentum=0.9
+    )
+    
+    # 分别设置学习率调度器
+    mamba_scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        mamba_optimizer,
         max_lr=0.001,
         epochs=args.epoch,
         steps_per_epoch=len(train_loader),
@@ -527,10 +548,16 @@ def main():
         final_div_factor=100
     )
     
-    # 使用混合精度训练
-    scaler = torch.cuda.amp.GradScaler()
+    trans_scheduler = torch.optim.lr_scheduler.MultiStepLR(
+        trans_optimizer, 
+        milestones=[5, 10, 15], 
+        gamma=0.2
+    )
     
-    train(model, train_loader, optimizer, scheduler, val_loader)
+    train(model, train_loader, 
+          (mamba_optimizer, trans_optimizer),
+          (mamba_scheduler, trans_scheduler),
+          val_loader)
 
 
 if __name__ == '__main__':
