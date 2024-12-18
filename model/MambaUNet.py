@@ -109,3 +109,10 @@ class MambaUNet(nn.Module):
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0) 
+
+
+if __name__ == "__main__":
+    x = torch.randn(1, 3, 384, 384).to("cuda")
+    net = MambaUNet(3, 5).to("cuda")
+    y = net(x)
+    print("y.shaoe:", y.shape)

@@ -88,7 +88,9 @@ from utils.PlaqueDataset_val import PlaqueDataset_val
 from model.MedSAM import MedSAM
 from model.SAM_VMNet import SAM_VMNet
 from model.UNetX import UNetX
-from model.MambaUNet import MambaUNet
+# from model.MambaUNet import MambaUNet
+from model.MambaUNet_new import MambaUnet
+
 torch.cuda.set_per_process_memory_fraction(0.99)
 # torch.cuda.set_per_process_memory_growth(True)
 
@@ -112,7 +114,7 @@ parser.add_argument("--net", required=True, choices=['PureUNet_SK_R','NestedUNet
                                                      'TransUnet2block','TransUnet3block','TransUnet_DA_SPP','TransUnet_SE_SPP','scSE_SPP_TransUnet','ScConv_SPP_TransUnet','GAM_SPP_TransUnet','SE_TransUnet_SPP','SE_TransUnet_SPP2','CBAM_TransUnet_SPP','BAM_TransUnet_SPP','PureUNet_BAM','MyPureUNet','SE_UNet_CBAM','TransUnet','Pos_TransUNet','PureTransUNet','DA_SPP_UNet','DA_SPP_UNet2','DA_SPP_Down_UNet',
                                                      'TransUnet_ASPP','TransUnet8block','TransUnet7block','TransUnet6block','TransUnet5block','TransUnet1block','TransUnet4block','Trans_Unet_SPP','DA_Trans_Unet_SPP','DA_Trans_Unet_SPP2','DA_TransUnet_SPP3','ECA_TransUnet_SPP','CBAM_TransUnet_SPP2',
                                                      'SE_SPP_Leaky_TransUnet','TransUnet_ASPP2', 'CE_Net_OCT','R2U_Net','TransUnet_atten_ASPP','TransUnet_ASPP_CBAM_decoder','ScribblePrompt',
-                                                     'PSP_DA_fusion','PSP_fusion', 'PSP_fusion2','PSP_SE_fusion', 'SK_concat_fusion','SE_max_fusion','SE_fusion', 'fusion_model', 'SK_fusion_direct', 'SK_fusion', 'max_fusion_model', 'MedSAM', 'SAM_VMNet', 'UNetX', 'MambaUNet'])
+                                                     'PSP_DA_fusion','PSP_fusion', 'PSP_fusion2','PSP_SE_fusion', 'SK_concat_fusion','SE_max_fusion','SE_fusion', 'fusion_model', 'SK_fusion_direct', 'SK_fusion', 'max_fusion_model', 'MedSAM', 'SAM_VMNet', 'UNetX', 'MambaUNet', 'MambaUnet'])
 parser.add_argument("--remark", default='')
 parser.add_argument("--root_path", default='dataset')
 parser.add_argument("--roi", default=False, type=bool, help='whether use RoI mask')
@@ -152,7 +154,7 @@ def train(model, train_loader, optimizer, scheduler, val_loader):
     # 加载保存的模型（训练过程中断的模型）
     start_epoch = 0
     if args.resume:
-        path_checkpoint = "/root/autodl-tmp/plaque/checkpoint/MambaUNet/MambaUNet_plaque_epoch_19_lr_0.05.pth"  # 断点路径
+        path_checkpoint = "/root/autodl-tmp/plaque/checkpoint/MambaUnet/MambaUnet_plaque_epoch_11_lr_0.05.pth"  # 断点路径
         checkpoint = torch.load(path_checkpoint)  # 加载断点
 
         model.load_state_dict(checkpoint['net'])  # 加载模型可学习参数
@@ -427,7 +429,7 @@ def main():
     if args.net == 'TransUnet8block':
         model: TransUnet8block = TransUnet8block(in_channels=3, out_put_channels=args.class_num)
     if args.net == 'TransUnet_ASPP':
-        model: TransUnet_ASPP = TransUnet_ASPP(in_channels=3, out_put_channels=args.class_num)
+        model: TransUnet_ASPP2 = TransUnet_ASPP2(in_channels=3, out_put_channels=args.class_num)
     if args.net == 'TransUnet_ASPP_CBAM_decoder':
         model: TransUnet_ASPP_CBAM_decoder = TransUnet_ASPP_CBAM_decoder(in_channels=3, out_put_channels=args.class_num)
     if args.net == 'TransUnet_atten_ASPP':
@@ -495,6 +497,8 @@ def main():
         model = UNetX(in_channels=3, out_channels=args.class_num)
     elif args.net == 'MambaUNet':
         model = MambaUNet(in_channels=3, out_channels=args.class_num)
+    elif args.net == 'MambaUnet':
+        model = MambaUnet(in_chans=3, num_classes=args.class_num)
 
     transformation = transforms.Compose([
         transforms.ToTensor(),  # 使用自定义ToTensor
@@ -509,26 +513,9 @@ def main():
     val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=True)
 
     # create optimizer
-    optimizer = optim.AdamW(
-        model.parameters(),
-        lr=0.0001,  # 降低初始学习率
-        weight_decay=0.01,
-        betas=(0.9, 0.999)
-    )
+    optimizer = optim.SGD(model.parameters(), args.lr, momentum=0.9)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[5, 10, 15], gamma=0.2, last_epoch=-1)
 
-    # 学习率调度器
-    scheduler = torch.optim.lr_scheduler.OneCycleLR(
-        optimizer,
-        max_lr=0.001,
-        epochs=args.epoch,
-        steps_per_epoch=len(train_loader),
-        pct_start=0.1,
-        div_factor=10,
-        final_div_factor=100
-    )
-    
-    # 使用混合精度训练
-    scaler = torch.cuda.amp.GradScaler()
     
     train(model, train_loader, optimizer, scheduler, val_loader)
 
