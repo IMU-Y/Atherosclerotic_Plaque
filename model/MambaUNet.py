@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from mamba_ssm import Mamba
 import torch.nn.functional as F
+from .CSCA import CSCA_blocks
 
 class SEBlock(nn.Module):
     """Squeeze-and-Excitation块"""
@@ -96,6 +97,8 @@ class UpBlock(nn.Module):
         x = self.mamba(x)
         return x
 
+
+
 class MambaUNet(nn.Module):
     def __init__(self, in_channels=3, out_channels=5):
         super().__init__()
@@ -111,7 +114,7 @@ class MambaUNet(nn.Module):
             nn.Conv2d(512, 1024, 3, padding=1),
             nn.BatchNorm2d(1024),
             nn.ReLU(inplace=True),
-            MambaBlock(1024)
+            CSCA_blocks(1024)
         )
         
         # 解码器
