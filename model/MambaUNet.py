@@ -110,12 +110,12 @@ class MambaUNet(nn.Module):
         self.enc4 = DownBlock(256, 512)
         
         # 瓶颈层
-        self.bottleneck = nn.Sequential(
+        self.pre_bottleneck = nn.Sequential(
             nn.Conv2d(512, 1024, 3, padding=1),
             nn.BatchNorm2d(1024),
-            nn.ReLU(inplace=True),
-            CSCA_blocks(1024)
+            nn.ReLU(inplace=True)
         )
+        self.csca = CSCA_blocks(in_channel=1024)
         
         # 解码器
         self.dec4 = UpBlock(1024, 512)
@@ -127,14 +127,15 @@ class MambaUNet(nn.Module):
         self.final = nn.Conv2d(64, out_channels, 1)
         
     def forward(self, x):
-        # ��码器路径
+        # 编码器路径
         x1, p1 = self.enc1(x)
         x2, p2 = self.enc2(p1)
         x3, p3 = self.enc3(p2)
         x4, p4 = self.enc4(p3)
         
-        # 瓶颈
-        b = self.bottleneck(p4)
+        # 瓶颈层处理
+        p4_processed = self.pre_bottleneck(p4)
+        b = self.csca(p4_processed)
         
         # 解码器路径
         d4 = self.dec4(b, x4)

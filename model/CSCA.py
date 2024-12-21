@@ -86,18 +86,24 @@ class Spaceatt(nn.Module):
 
 
 class CSCA_blocks(nn.Module):
-    def __init__(self, in_channel, out_channel, decay=2):
+    def __init__(self, in_channel, decay=4):
         super(CSCA_blocks, self).__init__()
-        self.upsample = nn.ConvTranspose2d(
-            in_channel, out_channel, 2, stride=2)
-        self.conv = Basic_blocks(in_channel, out_channel//2)
-        self.catt = DSE(out_channel//2, decay)
-        self.satt = Spaceatt(out_channel//2, decay)
-    def forward(self, high, low):
-        up = self.upsample(high)
-        concat = torch.cat([up, low], dim=1)
+        # 移除upsample层，使用1x1卷积保持通道数不变
+        self.proj = nn.Conv2d(in_channel, in_channel, 1)
+        
+        # 调整通道数，保持一致性
+        self.conv = Basic_blocks(in_channel * 2, in_channel)
+        self.catt = DSE(in_channel, decay)
+        self.satt = Spaceatt(in_channel, decay)
+        
+    def forward(self, x):
+        # 使用投影后的特征作为第二个输入
+        proj = self.proj(x)
+        concat = torch.cat([x, proj], dim=1)
         point = self.conv(concat)
         catt = self.catt(point)
         satt = self.satt(point, catt)
-        plusatt = catt*satt
-        return torch.cat([plusatt, catt], dim=1)
+        plusatt = catt * satt
+        
+        # 添加残差连接
+        return x + plusatt  # 确保输出与输入具有相同的通道数和尺寸
