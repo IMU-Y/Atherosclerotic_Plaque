@@ -16,6 +16,7 @@ from utils.PlaqueDataset import PlaqueDataset
 from utils.PlaqueDataset_val import PlaqueDataset_val
 
 from model.MambaUNet import MambaUNet
+from utils.LossNet import LossNet
 torch.cuda.set_per_process_memory_fraction(0.99)
 # torch.cuda.set_per_process_memory_growth(True)
 
@@ -96,7 +97,10 @@ def train(model, train_loader, optimizer, scheduler, val_loader):
     # Loss = nn.CrossEntropyLoss(weight=torch.FloatTensor([0.07440527,2.02950491, 1.36635133, 1., 0.93001003]).to(torch.device("cuda:0")),ignore_index=255)
     # Loss = DiceLoss()
 
-    Loss = FocalLossMutiClass()
+    focal_loss = FocalLossMutiClass()
+    perceptual_loss = LossNet() # 添加感知损失
+    perceptual_loss = perceptual_loss.to(device)  # 移到GPU
+
     # Loss = MixedLoss()
     # for epoch in range(start_epoch + 1, args.epoch + 1):
     for epoch in range(start_epoch + 1, args.epoch + 1):
@@ -124,13 +128,13 @@ def train(model, train_loader, optimizer, scheduler, val_loader):
                 # 深监督
                 loss = 0
                 for output in outputs:
-                    loss = Loss(output, gts)
+                    loss = focal_loss(output, gts) + 0.1 * perceptual_loss(output, gts)
                     total_loss += loss.detach().clone().cpu().item()
 
                 loss /= len(outputs)
                 total_loss += loss
             else:
-                loss = Loss(outputs, gts)
+                loss = focal_loss(outputs, gts) + 0.1 * perceptual_loss(outputs, gts)
                 total_loss += loss.detach().clone().cpu().item()
 
             # loss = Loss(outputs, gts)
