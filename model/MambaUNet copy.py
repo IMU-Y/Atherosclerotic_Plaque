@@ -97,21 +97,7 @@ class UpBlock(nn.Module):
         x = self.mamba(x)
         return x
 
-# 添加CNN1类
-class CNN1(nn.Module):
-    def __init__(self,channel,map_size,pad):
-        super(CNN1,self).__init__()
-        self.weight = nn.Parameter(torch.ones(channel,channel,map_size,map_size),requires_grad=False).cuda()
-        self.bias = nn.Parameter(torch.zeros(channel),requires_grad=False).cuda()
-        self.pad = pad
-        self.norm = nn.BatchNorm2d(channel)
-        self.relu = nn.ReLU()
 
-    def forward(self,x):
-        out = F.conv2d(x,self.weight,self.bias,stride=1,padding=self.pad)
-        out = self.norm(out)
-        out = self.relu(out)
-        return out
 
 class MambaUNet(nn.Module):
     def __init__(self, in_channels=3, out_channels=5):
@@ -145,12 +131,12 @@ class MambaUNet(nn.Module):
         self.level1 = nn.Sequential(nn.Conv2d(64, 64, kernel_size=3, padding=1), nn.BatchNorm2d(64), nn.ReLU(inplace=True))
 
         # 瓶颈层
-        self.pre_bottleneck = nn.Sequential(
+        self.bottleneck = nn.Sequential(
             nn.Conv2d(512, 1024, 3, padding=1),
             nn.BatchNorm2d(1024),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
+            CSCA_blocks(1024)
         )
-        self.csca = CSCA_blocks(in_channel=1024)
         
         # 解码器
         self.dec4 = UpBlock(1024, 512)
@@ -161,99 +147,36 @@ class MambaUNet(nn.Module):
         # 输出层
         self.final = nn.Conv2d(64, out_channels, 1)
         
-        # 添加3*3和5*5卷积
-        self.conv_3 = CNN1(64,3,1)
-        self.conv_5 = CNN1(64,5,2)
-        
     def forward(self, x):
         # 编码器路径
         x1, p1 = self.enc1(x)
         x2, p2 = self.enc2(p1)
         x3, p3 = self.enc3(p2)
         x4, p4 = self.enc4(p3)
-
+        
         # 多尺度特征处理
         x4_dem = self.x4_dem(x4)
         x3_dem = self.x3_dem(x3)
         x2_dem = self.x2_dem(x2)
         x1_dem = self.x1_dem(x1)
 
-        # 计算特征差异(加入3*3和5*5卷积)
-        x4_dem_up = F.interpolate(x4_dem, size=x3.size()[2:], mode='bilinear')
-        x4_dem_up_map1 = self.conv_3(x4_dem_up)
-        x3_dem_map1 = self.conv_3(x3_dem)
-        x4_dem_up_map2 = self.conv_5(x4_dem_up)
-        x3_dem_map2 = self.conv_5(x3_dem)
-        x4_3 = self.x4_x3(
-            abs(x4_dem_up - x3_dem) + 
-            abs(x4_dem_up_map1 - x3_dem_map1) + 
-            abs(x4_dem_up_map2 - x3_dem_map2)
-        )
+        # 计算特征差异
+        x4_3 = self.x4_x3(abs(F.interpolate(x4_dem, size=x3.size()[2:], mode='bilinear') - x3_dem))
+        x3_2 = self.x3_x2(abs(F.interpolate(x3_dem, size=x2.size()[2:], mode='bilinear') - x2_dem))
+        x2_1 = self.x2_x1(abs(F.interpolate(x2_dem, size=x1.size()[2:], mode='bilinear') - x1_dem))
 
-        x3_dem_up = F.interpolate(x3_dem, size=x2.size()[2:], mode='bilinear')
-        x3_dem_up_map1 = self.conv_3(x3_dem_up)
-        x2_dem_map1 = self.conv_3(x2_dem)
-        x3_dem_up_map2 = self.conv_5(x3_dem_up)
-        x2_dem_map2 = self.conv_5(x2_dem)
-        x3_2 = self.x3_x2(
-            abs(x3_dem_up - x2_dem) + 
-            abs(x3_dem_up_map1 - x2_dem_map1) + 
-            abs(x3_dem_up_map2 - x2_dem_map2)
-        )
-
-        x2_dem_up = F.interpolate(x2_dem, size=x1.size()[2:], mode='bilinear')
-        x2_dem_up_map1 = self.conv_3(x2_dem_up)
-        x1_dem_map1 = self.conv_3(x1_dem)
-        x2_dem_up_map2 = self.conv_5(x2_dem_up)
-        x1_dem_map2 = self.conv_5(x1_dem)
-        x2_1 = self.x2_x1(
-            abs(x2_dem_up - x1_dem) + 
-            abs(x2_dem_up_map1 - x1_dem_map1) + 
-            abs(x2_dem_up_map2 - x1_dem_map2)
-        )
-
-        # 多层级特征融合(加入3*3和5*5卷积)
-        x4_3_up = F.interpolate(x4_3, size=x3_2.size()[2:], mode='bilinear')
-        x4_3_up_map1 = self.conv_3(x4_3_up)
-        x3_2_map1 = self.conv_3(x3_2)
-        x4_3_up_map2 = self.conv_5(x4_3_up)
-        x3_2_map2 = self.conv_5(x3_2)
-        x4_3_2 = self.x4_x3_x2(
-            abs(x4_3_up - x3_2) + 
-            abs(x4_3_up_map1 - x3_2_map1) + 
-            abs(x4_3_up_map2 - x3_2_map2)
-        )
-
-        x3_2_up = F.interpolate(x3_2, size=x2_1.size()[2:], mode='bilinear')
-        x3_2_up_map1 = self.conv_3(x3_2_up)
-        x2_1_map1 = self.conv_3(x2_1)
-        x3_2_up_map2 = self.conv_5(x3_2_up)
-        x2_1_map2 = self.conv_5(x2_1)
-        x3_2_1 = self.x3_x2_x1(
-            abs(x3_2_up - x2_1) + 
-            abs(x3_2_up_map1 - x2_1_map1) + 
-            abs(x3_2_up_map2 - x2_1_map2)
-        )
-
-        x4_3_2_up = F.interpolate(x4_3_2, size=x3_2_1.size()[2:], mode='bilinear')
-        x4_3_2_up_map1 = self.conv_3(x4_3_2_up)
-        x3_2_1_map1 = self.conv_3(x3_2_1)
-        x4_3_2_up_map2 = self.conv_5(x4_3_2_up)
-        x3_2_1_map2 = self.conv_5(x3_2_1)
-        x4_3_2_1 = self.x4_x3_x2_x1(
-            abs(x4_3_2_up - x3_2_1) + 
-            abs(x4_3_2_up_map1 - x3_2_1_map1) + 
-            abs(x4_3_2_up_map2 - x3_2_1_map2)
-        )
+        # 多层级特征融合
+        x4_3_2 = self.x4_x3_x2(abs(F.interpolate(x4_3, size=x3_2.size()[2:], mode='bilinear') - x3_2))
+        x3_2_1 = self.x3_x2_x1(abs(F.interpolate(x3_2, size=x2_1.size()[2:], mode='bilinear') - x2_1))
+        x4_3_2_1 = self.x4_x3_x2_x1(abs(F.interpolate(x4_3_2, size=x3_2_1.size()[2:], mode='bilinear') - x3_2_1))
 
         # 特征融合
         level3 = self.level3(x4_3)
         level2 = self.level2(x3_2 + x4_3_2)
         level1 = self.level1(x2_1 + x3_2_1 + x4_3_2_1)
 
-        # 瓶颈层处理
-        p4_processed = self.pre_bottleneck(p4)
-        b = self.csca(p4_processed)
+        # 瓶颈层
+        b = self.bottleneck(p4)
         
         # 解码器路径（与多尺度特征融合）
         d4 = self.dec4(b, x4 + level3)
