@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from mamba_ssm import Mamba
 import torch.nn.functional as F
-from .CSCA import CSCA_blocks
+from model.CSCA import CSCA_blocks
 
 class SEBlock(nn.Module):
     """Squeeze-and-Excitation块"""
@@ -109,6 +109,29 @@ class MambaUNet(nn.Module):
         self.enc3 = DownBlock(128, 256)
         self.enc4 = DownBlock(256, 512)
         
+        # 跳跃连接
+        self.x4_dem_1 = nn.Sequential(nn.Conv2d(512, 64, kernel_size=3, padding=1), nn.BatchNorm2d(64), nn.ReLU(inplace=True))
+        self.x3_dem_1 = nn.Sequential(nn.Conv2d(256, 64, kernel_size=3, padding=1), nn.BatchNorm2d(64), nn.ReLU(inplace=True))
+        self.x2_dem_1 = nn.Sequential(nn.Conv2d(128, 64, kernel_size=3, padding=1), nn.BatchNorm2d(64), nn.ReLU(inplace=True))
+        self.x1_dem_1 = nn.Sequential(nn.Conv2d(64, 64, kernel_size=3, padding=1), nn.BatchNorm2d(64), nn.ReLU(inplace=True))
+        
+        self.x4_x3 = nn.Sequential(nn.Conv2d(64, 64, kernel_size=3, padding=1), nn.BatchNorm2d(64), nn.ReLU(inplace=True))
+        self.x3_x2 = nn.Sequential(nn.Conv2d(64, 64, kernel_size=3, padding=1), nn.BatchNorm2d(64), nn.ReLU(inplace=True))
+        self.x2_x1 = nn.Sequential(nn.Conv2d(64, 64, kernel_size=3, padding=1), nn.BatchNorm2d(64), nn.ReLU(inplace=True))
+        self.x1_x1 = nn.Sequential(nn.Conv2d(64, 64, kernel_size=3, padding=1), nn.BatchNorm2d(64), nn.ReLU(inplace=True))
+        
+        self.x4_x3_x2 = nn.Sequential(nn.Conv2d(64, 64, kernel_size=3, padding=1), nn.BatchNorm2d(64), nn.ReLU(inplace=True))
+        self.x3_x2_x1 = nn.Sequential(nn.Conv2d(64, 64, kernel_size=3, padding=1), nn.BatchNorm2d(64), nn.ReLU(inplace=True))
+
+        self.x4_x3_x2_x1 = nn.Sequential(nn.Conv2d(64, 64, kernel_size=3, padding=1), nn.BatchNorm2d(64), nn.ReLU(inplace=True))
+
+        self.x4_3_dem = nn.Sequential(nn.Conv2d(64, 256, kernel_size=3, padding=1), nn.BatchNorm2d(256), nn.ReLU(inplace=True))
+        self.x3_2_dem = nn.Sequential(nn.Conv2d(64, 128, kernel_size=3, padding=1), nn.BatchNorm2d(128), nn.ReLU(inplace=True))
+        self.x4_3_2_dem = nn.Sequential(nn.Conv2d(64, 128, kernel_size=3, padding=1), nn.BatchNorm2d(128), nn.ReLU(inplace=True))
+        self.x2_1_dem = nn.Sequential(nn.Conv2d(64, 64, kernel_size=3, padding=1), nn.BatchNorm2d(64), nn.ReLU(inplace=True))
+        self.x3_2_1_dem = nn.Sequential(nn.Conv2d(64, 64, kernel_size=3, padding=1), nn.BatchNorm2d(64), nn.ReLU(inplace=True))
+        self.x4_3_2_1_dem = nn.Sequential(nn.Conv2d(64, 64, kernel_size=3, padding=1), nn.BatchNorm2d(64), nn.ReLU(inplace=True))
+
         # 瓶颈层
         self.pre_bottleneck = nn.Sequential(
             nn.Conv2d(512, 1024, 3, padding=1),
@@ -133,6 +156,26 @@ class MambaUNet(nn.Module):
         x3, p3 = self.enc3(p2)
         x4, p4 = self.enc4(p3)
         
+        # print(x1.shape, x2.shape, x3.shape, x4.shape)
+
+        x4_dem_1 = self.x4_dem_1(x4)
+        x3_dem_1 = self.x3_dem_1(x3)
+        x2_dem_1 = self.x2_dem_1(x2)
+        x1_dem_1 = self.x1_dem_1(x1)
+
+        x4_3 = self.x4_x3(abs(F.upsample(x4_dem_1,size=x3.size()[2:], mode='bilinear')-x3_dem_1))
+        x3_2 = self.x3_x2(abs(F.upsample(x3_dem_1,size=x2.size()[2:], mode='bilinear')-x2_dem_1))
+        x2_1 = self.x2_x1(abs(F.upsample(x2_dem_1,size=x1.size()[2:], mode='bilinear')-x1_dem_1))
+
+        x4_3_2 = self.x4_x3_x2(abs(F.upsample(x4_3,size=x2.size()[2:], mode='bilinear')-x3_2))
+        x3_2_1 = self.x3_x2_x1(abs(F.upsample(x3_2,size=x1.size()[2:], mode='bilinear')-x2_1))
+
+        x4_3_2_1 = self.x4_x3_x2_x1(abs(F.upsample(x4_3_2,size=x1.size()[2:], mode='bilinear')-x3_2_1))
+
+        x4 = x4
+        x3 = x3 + self.x4_3_dem(x4_3)
+        x2 = x2 + self.x3_2_dem(x3_2) + self.x4_3_2_dem(x4_3_2)
+        x1 = x1 + self.x2_1_dem(x2_1) + self.x3_2_1_dem(x3_2_1) + self.x4_3_2_1_dem(x4_3_2_1)
         # 瓶颈层处理
         p4_processed = self.pre_bottleneck(p4)
         b = self.csca(p4_processed)
@@ -152,3 +195,11 @@ class MambaUNet(nn.Module):
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0) 
+
+
+# if __name__ == "__main__":
+#     x = torch.randn(1, 3, 256, 256).to("cuda")
+#     model = MambaUNet().to("cuda")
+#     print(model)
+#     y = model(x)
+#     print(y.shape)
