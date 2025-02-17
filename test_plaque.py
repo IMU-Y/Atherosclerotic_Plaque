@@ -251,6 +251,19 @@ def test(model, test_loader):
     confusion_matrix_statistics(sum_confusion_matrix)
     pass
     smooth = 1e-3
+    class_names = ['背景', '正常斑块', '纤维斑块', '脂质斑块', '钙化斑块']
+    for i in range(args.class_num):
+        denominator = total_class[i].item() + prediction_class[i].item() - correct_class[i].item()
+        if denominator == 0:
+            iou = 0.0  # 当分母为0时，设置IoU为0
+        else:
+            iou = correct_class[i].item() / denominator
+        print(f"{class_names[i]} IoU: {iou:.4f}")
+        
+        print(f"{class_names[i]}统计信息：")
+        print(f"- 正确预测像素数(TP): {correct_class[i].item()}")
+        print(f"- 真实标签像素总数: {total_class[i].item()}")
+        print(f"- 预测为该类的像素总数: {prediction_class[i].item()}\n")
     print('PA:{}'.format(correct_pixels / total_pixels))
     MPA = 1 / args.class_num * sum(correct_class[i].item() / total_class[i].item() for i in range(args.class_num))
     print("MPA:{}".format(MPA))
