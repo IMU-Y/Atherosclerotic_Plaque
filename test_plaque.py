@@ -139,14 +139,25 @@ def test(model, test_loader):
     calcium = [] # 记录钙化斑块
     unnormal = [] # 记录非正常斑块
     fibrous_lipid = [] #记录纤维/脂质
+
+    # 添加时间统计
+    total_time = 0
+    total_samples = 0
+    
     for batch_index, (images, gts) in enumerate(test_loader):
         images, gts = images.to(device), gts.to(device)
-        # print('gts max:{}, min:{}'.format(torch.max(gts), torch.min(gts)))
-
+        
+        # 记录开始时间
+        start_time = time.time()
+        
         with torch.no_grad():
             outputs = model(images)
-            # print('pred max:{}, min:{}'.format(torch.max(outputs), torch.min(outputs)))
-            # print(gts.shape)
+            
+        # 计算这批数据的推理时间
+        batch_time = time.time() - start_time
+        total_time += batch_time
+        total_samples += images.shape[0]
+        
         # 在通道维度softmax
         prediction = torch.argmax(torch.softmax(outputs, dim=1), dim=1).unsqueeze(dim=1)
         print(prediction.shape)
@@ -241,6 +252,13 @@ def test(model, test_loader):
         TN += ((pseudo_predictions == 0) & (pseudo_gts == 0)).sum().item()
         FN += ((pseudo_predictions == 0) & (pseudo_gts == 1)).sum().item()
 
+    # 计算平均推理速度
+    avg_time_per_sample = total_time / total_samples
+    samples_per_second = total_samples / total_time
+    
+    print(f'平均每张图片推理时间: {avg_time_per_sample*1000:.2f} ms')
+    print(f'每秒处理图片数: {samples_per_second:.2f}')
+
     # 将结果写入excel
     dict = {'Rank': imgs, 'Normal(%)': normal,'Fibrous(%)':fibrous,'Lipid(%)':lipid,'Calcium(%)':calcium,'Unnormal(%)':unnormal,'Fibrous/Lipid':fibrous_lipid}
     df = pd.DataFrame(dict)
@@ -251,19 +269,6 @@ def test(model, test_loader):
     confusion_matrix_statistics(sum_confusion_matrix)
     pass
     smooth = 1e-3
-    class_names = ['背景', '正常斑块', '纤维斑块', '脂质斑块', '钙化斑块']
-    for i in range(args.class_num):
-        denominator = total_class[i].item() + prediction_class[i].item() - correct_class[i].item()
-        if denominator == 0:
-            iou = 0.0  # 当分母为0时，设置IoU为0
-        else:
-            iou = correct_class[i].item() / denominator
-        print(f"{class_names[i]} IoU: {iou:.4f}")
-        
-        print(f"{class_names[i]}统计信息：")
-        print(f"- 正确预测像素数(TP): {correct_class[i].item()}")
-        print(f"- 真实标签像素总数: {total_class[i].item()}")
-        print(f"- 预测为该类的像素总数: {prediction_class[i].item()}\n")
     print('PA:{}'.format(correct_pixels / total_pixels))
     MPA = 1 / args.class_num * sum(correct_class[i].item() / total_class[i].item() for i in range(args.class_num))
     print("MPA:{}".format(MPA))
@@ -288,6 +293,7 @@ def test(model, test_loader):
 
 
 def main():
+    
     # load model
     # model.load_state_dict(checkpoint['model'])
 
